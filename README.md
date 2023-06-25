@@ -8,7 +8,7 @@ Write server side partials with all their parts in one file.  Js, css and html a
 
 Given a file in `src/templates` called `headline.chopper.html`:
 
-```
+``` html
 <style chopper:file="headline.scss">
   h1{
     color: grey;
@@ -29,7 +29,7 @@ Given a file in `src/templates` called `headline.chopper.html`:
 
 This command will create three new files:
 
-```
+``` bash
 python3 chopper --script=src/js --style=src/scss --html=private/templates src/templates
 ```
 
@@ -42,4 +42,31 @@ It will walk through all the files in `src/templates` and process all the files 
 
 ### Intergration
 
-This can be intergrated with mix
+This can be intergrated with mix to be part of the build process.  Add this to `webpack.mix.js` somewhere before mix is executed.
+
+``` js
+
+const {spawn} = require('child_process');
+
+const python = spawn('python3', ['chopper.py']);
+python.stdout.on('data', function (data) {
+  console.log('Pipe data from python script ...');
+  dataToSend = data.toString();
+  console.log('A', dataToSend)
+});
+python.stderr.on('data', function(data){
+  console.log('START CHOPPER ERROR -----------------------------------------------------')
+  console.log()
+  console.log(data.toString())
+  console.log('END CHOPPER ERROR -------------------------------------------------------')
+  console.log()
+  throw Error('Chopper error')
+})
+python.on('close', (code) => {
+ console.log(`child process close all stdio with code ${code}`);
+  // send data to browser
+  // res.send(dataToSend)
+  console.log('B', dataToSend)
+});
+
+```
