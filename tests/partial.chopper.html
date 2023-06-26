@@ -1,5 +1,5 @@
 
-<style chopper:file="src/scss/partial.scss">
+<style chopper:file="{NAME}.scss">
   .something{
     color: red;
   }
@@ -21,7 +21,9 @@ foreach(item as some_list){
 <script>console.log('x')</script>
 
 
-<script chopper:append="append|replace" chopper:file="x">/* x */</script>
+<script chopper:file="src/somewhere/{NAME}.js">
+/* x */
+</script>
 
 
 <chop chopper:file="src/templates/partials/partial.twig">
@@ -33,7 +35,7 @@ foreach(item as some_list){
 </chop>
 
 
-<chop chopper:file="somehwere">
+<chop chopper:file="src/{NAME}.html">
 
 
 
