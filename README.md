@@ -35,6 +35,14 @@ This command will create three new files:
 python3 chopper --script=src/js --style=src/scss --html=private/templates src/templates
 ```
 
+It will walk through all the files in `src/templates` and process all
+the files that end in `.chopper.html`.  In this case these three files
+will be created:
+
+1. `src/scss/headline.scss`
+1. `src/js/theme/headline.js`
+1. `private/templates/title.twig`
+
 If `{NAME}` is used in the `chopper:file` attribute, it will be
 replaced with the source file's base name.  In this case it would be
 `headline`.  The `.chopper.html` part of the file name is removed.
@@ -45,14 +53,6 @@ the script won't walk the filesystem looking for chopper files.
 ``` bash
 python3 chopper --script=src/js --style=src/scss --html=private/templates src/templates/headline.chopper.html
 ```
-
-It will walk through all the files in `src/templates` and process all
-the files that end in `.chopper.html`.  In this case these three files
-will be created:
-
-1. `src/scss/headline.scss`
-1. `src/js/theme/headline.js`
-1. `private/templates/title.twig`
 
 <!--
 ### Intergration
