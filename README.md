@@ -20,7 +20,7 @@ Given a file in `src/templates` called `headline.chopper.html`:
   }
 </style>
 
-<script chopper:file="site.js">
+<script chopper:file="theme/{NAME}.js">
   console.log('This is a log')
 </script>
 
@@ -29,10 +29,21 @@ Given a file in `src/templates` called `headline.chopper.html`:
 </chopper>
 ```
 
+If `{NAME}` is used in the `chopper:file` attribute, it will be
+replaced with the source file's base name.  In this case it would be
+`headline`.  The `.chopper.html` part of the file name is removed.
+
 This command will create three new files:
 
 ``` bash
 python3 chopper --script=src/js --style=src/scss --html=private/templates src/templates
+```
+
+A single file can be passed as the source argument and in that case
+the script won't walk the filesystem looking for chopper files.
+
+``` bash
+python3 chopper --script=src/js --style=src/scss --html=private/templates src/templates/headline.chopper.html
 ```
 
 It will walk through all the files in `src/templates` and process all
@@ -40,10 +51,10 @@ the files that end in `.chopper.html`.  In this case these three files
 will be created:
 
 1. `src/scss/headline.scss`
-1. `src/js/site.js`
+1. `src/js/theme/headline.js`
 1. `private/templates/title.twig`
 
-
+<!--
 ### Intergration
 
 This can be intergrated with mix to be part of the build process.  Add
@@ -75,3 +86,4 @@ python.on('close', (code) => {
 });
 
 ```
+-->
