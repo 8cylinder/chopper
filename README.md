@@ -8,7 +8,7 @@ Write server side partials with all their parts in one file.  Js, css
 and html are extracted and written to seperate files so they can be
 then handled by whatever build tool you use such as webpack.
 
-Given a file in `src/templates` called `headline.chopper.html`:
+Given a file in `src/chopper/` called `headline.chopper.html`:
 
 ``` html
 <style chopper:file="headline.scss">
@@ -29,15 +29,15 @@ Given a file in `src/templates` called `headline.chopper.html`:
 </chopper>
 ```
 
-If `{NAME}` is used in the `chopper:file` attribute, it will be
-replaced with the source file's base name.  In this case it would be
-`headline`.  The `.chopper.html` part of the file name is removed.
-
 This command will create three new files:
 
 ``` bash
 python3 chopper --script=src/js --style=src/scss --html=private/templates src/templates
 ```
+
+If `{NAME}` is used in the `chopper:file` attribute, it will be
+replaced with the source file's base name.  In this case it would be
+`headline`.  The `.chopper.html` part of the file name is removed.
 
 A single file can be passed as the source argument and in that case
 the script won't walk the filesystem looking for chopper files.
