@@ -13,6 +13,8 @@ from pathlib import Path
 import textwrap
 
 NOW = datetime.now().isoformat()
+DRYRUN = False
+CHOPPER_NAME = '.chopper.html'
 
 # logger = logging.getLogger(__name__)
 # click_log.basic_config(logger)
@@ -61,18 +63,19 @@ def find_chopper_files(source):
 
     for root, dirs, files in os.walk(source):
         for filename in files:
-            if filename.endswith(".chopper.html"):
+            if filename.endswith(CHOPPER_NAME):
                 chopper_files.append(os.path.join(root, filename))
 
     return chopper_files
 
 
 def chop(source, types):
-    print(source)
+    print(f'chopper: chopping "{source}"')
     with open(source, 'r') as f:
         source_html = f.read()
 
     parser = HTMLParser()
+    parser.parsed_data.clear()
     parser.feed(source_html)
     data = parser.parsed_data
 
@@ -83,18 +86,27 @@ def chop(source, types):
         content = textwrap.dedent(content)
         block['content'] = content
         block['base_path'] = types[block['tag']]
+        block['path'] = magic_vars(block['path'], source)
         make_file(block)
 
 
+def magic_vars(path, source):
+    source = Path(source)
+    source_name = source.name.replace(CHOPPER_NAME, '')
+    new_name = path.format(NAME=source_name)
+    return new_name
+
+
 def make_file(block):
-    # pp(block)
     partial = Path(os.path.join(block['base_path'], block['path']))
+    if not DRYRUN:
+        if partial.parent.mkdir(parents=True, exist_ok=True):
+            print(f'chopper: made dir, {partial.parent}')
 
-    if partial.parent.mkdir(parents=True, exist_ok=True):
-        print(f'chopper: made dir, {partial.parent}')
-
-    if partial.write_text(block['content']):
-        print(f'chopper: wrote to {partial}')
+        if partial.write_text(block['content']):
+            print(f'chopper: wrote to {partial}')
+    else:
+        print(f'chopper: DRY RUN: wrote to {partial}')
 
 
 def main():
@@ -122,13 +134,23 @@ def main():
         action="store_true",
         help='Add comments to generated files')
     parser.add_argument(
+        '--dry-run',
+        action="store_true",
+        help="Do not write any file to the filesystem")
+    parser.add_argument(
         'source_dir',
         metavar='SOURCE-DIR',
         help='The directory that contains the chopper files.')
 
     args = parser.parse_args()
 
-    chopper_files = find_chopper_files(args.source_dir)
+    global DRYRUN
+    DRYRUN = args.dry_run
+
+    if os.path.isdir(args.source_dir):
+        chopper_files = find_chopper_files(args.source_dir)
+    else:
+        chopper_files = [args.source_dir]
     types = {
         'script': args.script_dir or '',
         'style': args.style_dir or '',
@@ -136,9 +158,6 @@ def main():
     }
     for source in chopper_files:
         chop(source, types)
-
-    # pp(args)
-    # pp(args.source_dir)
 
 
 if __name__ == '__main__':

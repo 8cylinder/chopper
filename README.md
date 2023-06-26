@@ -4,7 +4,9 @@
 
 ### Overview
 
-Write server side partials with all their parts in one file.  Js, css and html are extracted and written to seperate files so they can be then handled by whatever build tool you use such as webpack.
+Write server side partials with all their parts in one file.  Js, css
+and html are extracted and written to seperate files so they can be
+then handled by whatever build tool you use such as webpack.
 
 Given a file in `src/templates` called `headline.chopper.html`:
 
@@ -33,7 +35,9 @@ This command will create three new files:
 python3 chopper --script=src/js --style=src/scss --html=private/templates src/templates
 ```
 
-It will walk through all the files in `src/templates` and process all the files that end in `.chopper.html`.  In this case these three files will be created:
+It will walk through all the files in `src/templates` and process all
+the files that end in `.chopper.html`.  In this case these three files
+will be created:
 
 1. `src/scss/headline.scss`
 1. `src/js/site.js`
@@ -42,7 +46,8 @@ It will walk through all the files in `src/templates` and process all the files 
 
 ### Intergration
 
-This can be intergrated with mix to be part of the build process.  Add this to `webpack.mix.js` somewhere before mix is executed.
+This can be intergrated with mix to be part of the build process.  Add
+this to `webpack.mix.js` somewhere before mix is executed.
 
 ``` js
 
