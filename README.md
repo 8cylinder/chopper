@@ -35,7 +35,7 @@ This command will create three new files:
 python3 chopper --script=src/js --style=src/scss --html=private/templates src/templates
 ```
 
-It will walk through all the files in `src/templates` and process all
+It will walk through all the files in `src/chopper` and process all
 the files that end in `.chopper.html`.  In this case these three files
 will be created:
 
