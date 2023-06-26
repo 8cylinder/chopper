@@ -32,7 +32,7 @@ Given a file in `src/chopper/` called `headline.chopper.html`:
 This command will create three new files:
 
 ``` bash
-python3 chopper --script=src/js --style=src/scss --html=private/templates src/templates
+python3 chopper --script=src/js --style=src/scss --html=private/templates src/chopper
 ```
 
 It will walk through all the files in `src/chopper` and process all
@@ -51,7 +51,7 @@ A single file can be passed as the source argument and in that case
 the script won't walk the filesystem looking for chopper files.
 
 ``` bash
-python3 chopper --script=src/js --style=src/scss --html=private/templates src/templates/headline.chopper.html
+python3 chopper --script=src/js --style=src/scss --html=private/templates src/chopper/headline.chopper.html
 ```
 
 <!--
