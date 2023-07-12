@@ -54,36 +54,44 @@ the script won't walk the filesystem looking for chopper files.
 python3 chopper --script=src/js --style=src/scss --html=private/templates src/chopper/headline.chopper.html
 ```
 
-<!--
+
 ### Intergration
 
-This can be intergrated with mix to be part of the build process.  Add
-this to `webpack.mix.js` somewhere before mix is executed.
+`chopper-watch.bash`
 
-``` js
+``` bash
+#!/usr/bin/env bash
 
-const {spawn} = require('child_process');
+watch_dir=resources/chopper/
+cd /var/www/html || exit
 
-const python = spawn('python3', ['chopper.py']);
-python.stdout.on('data', function (data) {
-  console.log('Pipe data from python script ...');
-  dataToSend = data.toString();
-  console.log('A', dataToSend)
-});
-python.stderr.on('data', function(data){
-  console.log('START CHOPPER ERROR -----------------------------------------------------')
-  console.log()
-  console.log(data.toString())
-  console.log('END CHOPPER ERROR -------------------------------------------------------')
-  console.log()
-  throw Error('Chopper error')
-})
-python.on('close', (code) => {
- console.log(`child process close all stdio with code ${code}`);
-  // send data to browser
-  // res.send(dataToSend)
-  console.log('B', dataToSend)
-});
+cmd='python3 resources/scripts/chopper.py
+             --comments
+             --script-dir resources/js/
+             --style-dir resources/css/
+             --html-dir resources/views/'
 
+$cmd --warn $watch_dir
+
+if [[ $1 == 'watch' ]]; then
+    inotifywait -mrq -e close_write,moved_to,create,modify $watch_dir |
+        while read -r dir events name; do
+            echo
+            $cmd $dir$name
+        done
+else
+    echo "Add command 'watch' to watch for changes."
+fi
 ```
--->
+
+In `package.json` add the chopper line to the scripts section.  This
+will run the chopper watch script in parallel with npm's watch.
+
+``` json
+"scripts": {
+  "chopper": "bash chopper-watch.bash watch & npm run watch && fg"
+}
+```
+
+`npm run chopper`
+
