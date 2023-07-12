@@ -57,41 +57,22 @@ python3 chopper --script=src/js --style=src/scss --html=private/templates src/ch
 
 ### Intergration
 
-`chopper-watch.bash`
+Intergration with ddev and laravel mix.
 
-``` bash
-#!/usr/bin/env bash
+In `.ddev/config.yaml`, add `inotify-tools` to `webimage_extra_packages`.
 
-watch_dir=resources/chopper/
-cd /var/www/html || exit
+DDev needs to be able to access chopper-watch.bash and chopper.py from inside the container.  Create a dir somewhere in your project and copy `chopper-watch.bash` and `chopper.py` to it.
 
-cmd='python3 resources/scripts/chopper.py
-             --comments
-             --script-dir resources/js/
-             --style-dir resources/css/
-             --html-dir resources/views/'
-
-$cmd --warn $watch_dir
-
-if [[ $1 == 'watch' ]]; then
-    inotifywait -mrq -e close_write,moved_to,create,modify $watch_dir |
-        while read -r dir events name; do
-            echo
-            $cmd $dir$name
-        done
-else
-    echo "Add command 'watch' to watch for changes."
-fi
-```
+Edit the variables in the top of `chopper-watch.bash` to point to the various locations that it needs.
 
 In `package.json` add the chopper line to the scripts section.  This
 will run the chopper watch script in parallel with npm's watch.
 
 ``` json
 "scripts": {
-  "chopper": "bash chopper-watch.bash watch & npm run watch && fg"
+  "chopper": "bash path/to/chopper-watch.bash watch & npm run watch && fg"
 }
 ```
 
-`npm run chopper`
+`ddev npm run chopper`
 
