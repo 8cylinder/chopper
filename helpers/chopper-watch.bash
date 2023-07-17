@@ -5,29 +5,66 @@ script_base=resources/js/
 style_base=resources/css/
 html_base=resources/views/
 watch_dir=resources/chopper/
-chopper=resouces/scripts/chopper.py
+chopper=resources/scripts/chopper.py
+
+initializeANSI()
+{
+    esc=""
+
+    blackf="${esc}[30m"
+    redf="${esc}[31m"
+    greenf="${esc}[32m"
+    yellowf="${esc}[33m"
+    bluef="${esc}[34m"
+    purplef="${esc}[35m"
+    cyanf="${esc}[36m"
+    whitef="${esc}[37m"
+
+    blackb="${esc}[40m"
+    redb="${esc}[41m"
+    greenb="${esc}[42m"
+    yellowb="${esc}[43m"
+    blueb="${esc}[44m"
+    purpleb="${esc}[45m"
+    cyanb="${esc}[46m"
+    whiteb="${esc}[47m"
+
+    boldon="${esc}[1m"
+    boldoff="${esc}[22m"
+    italicson="${esc}[3m"
+    italicsoff="${esc}[23m"
+    ulon="${esc}[4m"
+    uloff="${esc}[24m"
+    invon="${esc}[7m"
+    invoff="${esc}[27m"
+
+    reset="${esc}[0m"
+}
+initializeANSI
 
 cd $project_root || exit
 
-cmd='python3 $chopper
+cmd="python3 $chopper
              --comments
              --script-dir $script_base
              --style-dir $style_base
-             --html-dir $html_base'
+             --html-dir $html_base"
 
 # On first run, generate all, and if any files are different, stop,
 # since that means that someone edited a destination file and that
 # needs investigation.
 if ! $cmd --warn $watch_dir; then
-    echo 'chopper-watch: files are different, exiting.'
+    echo "${redb}${whitef}${boldon}chopper-watch:${boldoff} files are different, exiting.${reset}"
     exit
 fi
 
 if [[ $1 == 'watch' ]]; then
     inotifywait -mrq -e close_write,moved_to,create,modify $watch_dir |
-        while read -r dir events name; do
-            echo
-            $cmd $dir$name
+        while read -r dir _events name; do
+            if [[ $name == *chopper.html ]]; then
+                echo
+                $cmd "$dir$name"
+            fi
         done
 else
     echo "Add command 'watch' to watch for changes."
