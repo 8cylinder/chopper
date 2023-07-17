@@ -4,22 +4,23 @@ from datetime import datetime
 import os
 import sys
 import errno
+import io
 import re
 import argparse
-import textwrap
+from textwrap import dedent
 from pprint import pprint as pp
 from html.parser import HTMLParser
 from pathlib import Path
-import textwrap
 from enum import Enum
 import difflib
+from typing import List, Any, Dict
 
 NOW = datetime.now().isoformat(timespec='seconds', sep=',')
 DRYRUN = False
 CHOPPER_NAME = '.chopper.html'
 
 
-class c:
+class C:
     MAGENTA = '\033[95m'
     RED = '\033[31m'
     REDB = '\033[41m'
@@ -34,7 +35,7 @@ class c:
     GREENB = '\033[42m'
     BLACK = '\033[30m'
     BBLACK = '\033[90m'
-    BLACKb = '\033[40m'
+    BLACKB = '\033[40m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
     RESET = '\033[0m'
@@ -48,34 +49,34 @@ class Action(Enum):
     UNCHANGED = 'File unchanged'
 
 
-def info(action, filename, dry_run=False, last=False):
+def info(action: Action, filename: str, dry_run: bool = False, last: bool = False) -> None:
     dry_run = ' (DRY RUN)' if dry_run else ''
-    choppa = f'{c.MAGENTA}{c.BOLD}CHOPPER:{c.RESET}'
-    task = f'{c.BGREEN}{action.value}{dry_run}{c.RESET}'
-    filename = f'{c.BBLUE}{filename}{c.RESET}'
+    choppa = f'{C.MAGENTA}{C.BOLD}CHOPPER:{C.RESET}'
+    task = f'{C.BGREEN}{action.value}{dry_run}{C.RESET}'
+    filename = f'{C.BBLUE}{filename}{C.RESET}'
     tree = ''
     if action != action.CHOP:
         tree = '└─ ' if last else '├─ '
     date = ''
     if action == action.CHOP:
-        date = f'{c.BBLACK}{NOW}{c.RESET}'
+        date = f'{C.BBLACK}{NOW}{C.RESET}'
     print(f'{choppa} {tree}{task} {filename}  {date}')
 
 
-def error(action, filename, msg, dry_run=False):
+def error(action: Action, filename: str, msg: str, dry_run: bool = False) -> None:
     dry_run = ' (DRY RUN)' if dry_run else ''
-    choppa = f'{c.REDB}{c.BOLD}CHOPPER:{c.RESET}'
-    action = f'{c.REDB}{c.BOLD}{action.value}{dry_run}{c.RESET}'
-    filename = f'{c.BBLUE}{filename}{c.RESET}'
+    choppa = f'{C.REDB}{C.BOLD}CHOPPER:{C.RESET}'
+    action = f'{C.REDB}{C.BOLD}{action.value}{dry_run}{C.RESET}'
+    filename = f'{C.BBLUE}{filename}{C.RESET}'
     print(choppa, action, msg, filename, file=sys.stderr)
 
 
-class HTMLParser(HTMLParser):
-    tags = ['style', 'script', 'chop']
-    tree = []
-    path = None
-    parsed_data = []
-    start = None
+class ChopperParser(HTMLParser):
+    tags: list[str] = ['style', 'script', 'chop']
+    tree: list[Any] = []
+    path: str = None
+    parsed_data: list[dict[str, Any]] = []
+    start: tuple = None
 
     def handle_starttag(self, tag, attrs):
         if tag in self.tags:
@@ -87,7 +88,7 @@ class HTMLParser(HTMLParser):
 
     def handle_endtag(self, tag):
         if tag in self.tags:
-            start_tag = self.tree.pop()
+            self.tree.pop()
             if not self.tree:
                 self.parsed_data.append({
                     'path': self.path,
@@ -97,7 +98,7 @@ class HTMLParser(HTMLParser):
                 })
 
 
-def find_chopper_files(source):
+def find_chopper_files(source: Path) -> list[str]:
     if not os.path.exists(source):
         raise FileNotFoundError(
             errno.ENOENT, os.strerror(errno.ENOENT), source)
@@ -121,7 +122,7 @@ def chop(source, types, comments, warn=False):
     with open(source, 'r') as f:
         source_html = f.read()
 
-    parser = HTMLParser()
+    parser = ChopperParser()
     parser.parsed_data.clear()
     parser.feed(source_html)
     data = parser.parsed_data
@@ -135,13 +136,13 @@ def chop(source, types, comments, warn=False):
         end = block['end'][0] - 1
         raw_content = source_html[start:end]
         content = '\n'.join(raw_content)
-        content = textwrap.dedent(content)
+        content = dedent(content)
         block['content'] = content
         if comments:
             c = comments[block['tag']]
             if not raw_content:
                 block['content'] = f'{c[0]}Chopper: No content{c[1]}'
-            text = [source, block['path']]
+            # text = [source, block['path']]
             dest = Path(os.path.join(block['base_path'], block['path']))
             comment = f'{c[0]}{source} - {dest}{c[1]}'
             block['content'] = f'\n{comment}\n\n{block["content"]}'
@@ -179,11 +180,13 @@ def write_to_file(block, content, f, last, partial, warn, newfile):
     try:
         current_contents = f.read()
     except io.UnsupportedOperation:
-        pass
+        current_contents = None  # ?????????????????????????????
+
     # print('>>>', current_contents)
     # current_contents = f'{current_contents.rstrip()}'
     # show_diff(content, current_contents, block['path'], str(partial))
     # print(len(current_contents), len(content))
+
     if current_contents != content:
         if warn:
             error(Action.WRITE, partial, 'File contents differ')
@@ -208,34 +211,35 @@ def show_diff(a, b, fname_a, fname_b):
         b.splitlines(),
         tofile=fname_a,
         fromfile=fname_b,
-        n=3
+        n=0
     )
     print()
-    for l in diff:
-        l = l.rstrip()
-        if l.startswith('*'):
-            color = c.RED
-        elif l.startswith('-'):
-            color = c.GREEN
+    for line in diff:
+        line = line.rstrip()
+        color = None
+        if line.startswith('*'):
+            color = C.RED
+        elif line.startswith('-'):
+            color = C.GREEN
 
-        if l.startswith('!'):
-            print(f'{color}{l}{c.RESET}')
-        elif l.startswith('--'):
-            print(f'{c.BLACK}{c.REDB}{l}{c.RESET}')
-        elif l.startswith('****'):
+        if line.startswith('!'):
+            print(f'{color}{line}{C.RESET}')
+        elif line.startswith('--'):
+            print(f'{C.BLACK}{C.REDB}{line}{C.RESET}')
+        elif line.startswith('****'):
             hl = '=' * 80
             print()
-            print(f'{c.BCYAN}{hl}{c.RESET}')
+            print(f'{C.BCYAN}{hl}{C.RESET}')
             print()
-        elif l.startswith('*'):
-            print(f'{c.BLACK}{c.GREENB}{l}{c.RESET}')
+        elif line.startswith('*'):
+            print(f'{C.BLACK}{C.GREENB}{line}{C.RESET}')
         else:
-            print(l)
+            print(line)
 
 
 def main():
-    help_msg = textwrap.dedent('''
-      Chop files into their seperate types, style, script and html.
+    help_msg = dedent('''
+      Chop files into their separate types, style, script and html.
 
       Get to the choppa!
     ''')
@@ -258,7 +262,7 @@ def main():
         nargs='?',
         default=None,
         const='STANDARD_COMMENTS',
-        help='Add comments to generated files. Seperate start and end comments with a comma')
+        help='Add comments to generated files. Separate start and end comments with a comma')
     parser.add_argument(
         '--warn',
         action='store_true',
@@ -282,13 +286,13 @@ def main():
         chopper_files = find_chopper_files(args.source_dir)
     else:
         chopper_files = [args.source_dir]
+
     types = {
         'script': args.script_dir or '',
         'style': args.style_dir or '',
         'chop': args.html_dir or '',
     }
 
-    comments = None
     if args.comments == 'STANDARD_COMMENTS':
         comment_types = {
             'script': ['// ', ''],
@@ -308,6 +312,7 @@ def main():
     for source in chopper_files:
         chop(source, types, comment_types, warn=args.warn)
     print()
+
 
 if __name__ == '__main__':
     main()
