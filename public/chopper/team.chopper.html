@@ -1,0 +1,468 @@
+
+<script chopper:file="base/{NAME}.js">
+// TEAM MEMBERS
+$(function () {
+  if ($('.js-research-team-card').length) {
+    var partnerPopups = $('.js-team-popup');
+    var body = $('body');
+    $('.js-team-btn').each(function (index, value) {
+      $(this).on('click', function () {
+        var partnerId = $(this).attr('id');
+        var partnerPopup = '#' + partnerId + '-popup';
+        var $partnerPopupModal = $(partnerPopup).find('.js-team-modal');
+
+        body.addClass('overflow-hidden');
+
+        partnerPopups.each(function () {
+          $(this).find('.js-team-modal').removeClass('is-active');
+          $(this).removeClass('is-active');
+        });
+
+        $(partnerPopup).addClass('is-active');
+        $partnerPopupModal.addClass('is-active');
+
+        $('.js-team-popup').on('click', function (event) {
+          if ($(event.target).closest('.js-team-modal').length === 0) {
+            closePopup();
+          }
+        });
+      });
+    });
+
+    function closePopup() {
+      body.removeClass('overflow-hidden');
+      partnerPopups.each(function () {
+        $(this).find('.js-team-modal').removeClass('is-active');
+        $(this).removeClass('is-active');
+      });
+    }
+
+    $('.js-team-popup-close').on('click', function (e) {
+      e.preventDefault();
+      closePopup();
+    });
+
+    window.onkeydown = function (event) {
+      if (event.keyCode == 27) {
+        closePopup();
+        closeMenu();
+      }
+    };
+  }
+
+  $(function () {
+    var scrollPos = 0;
+    $(window).scroll(function () {
+      scrollPos = $(this).scrollTop();
+
+      if (scrollPos > 1) {
+        $('.js-scroll-hide svg').fadeOut();
+      } else {
+        $('.js-scroll-hide svg').fadeIn();
+      }
+    });
+  });
+});
+</script>
+
+
+<chop chopper:file="partials/research/{NAME}.antlers.html">
+  <!-- RESEARCH TEAM -->
+  <div id="our-team" class="hidden-anchor"></div>
+  <section class="pt6 relative bg-{{team_background_color}}">
+    <div class="tc mw12 center mt0-l ph3-l ph5-m ph4">
+      <h2
+          class="f1 c-forest mb5"
+          style="line-height: 90%">
+        {{ team_headline }}
+      </h2>
+
+      <div class="c-dark-green article-content article-content-condensed fs-20 mw7 center mb5">
+        {{ team_description }}
+      </div>
+
+      {{ if team_points }}
+      <div class="flex flex-wrap justify-between tl mt5 mb5">
+        {{ team_points }}
+        <div class="flex flex-wrap w-30-l w-100 pv3 ph3 bt bc-forest">
+          <div class="pl1 pv2 flex">
+            <div class="pr3">{{ icon | output }}</div>
+            <div class="pl2">{{ description }}</div>
+          </div>
+        </div>
+        {{ /team_points}}
+      </div>
+      {{ /if }}
+    </div>
+
+    {{# TEAM MEMBERS =================================================== #}}
+    <div class="mw12 center research-team-container
+          research-team-container--centered ph3 ph5-m pb4">
+      {{ team_members }}
+      <div
+          class="w-100 ba bc-forest mb4 relative overflow-hidden
+            research-team-card js-research-team-card">
+        <img src="{{headshot}}" alt="{{headshot:alt}}" class="db w-100 h-100" />
+        {{#
+           <!-- OFF -->{{ responsive:headshot
+           class="js-lazy-img db w-100 h-100"
+           alt="{ headshot:alt }"
+           data-src="true"
+           quality="100"
+           }}
+        #}}
+        <div
+            class="bg-limestone bt bw2 bc-forest ph3 pv3 absolute left-0 right-0 research-team-card-overlay">
+          <div class="flex flex-wrap items-center justify-between mb2">
+            <h2 class="f5-l f6 c-dark-green f-main--b">{{ name }}</h2>
+            <div>
+              <svg
+                  width="24"
+                  height="16"
+                  viewBox="0 0 24 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg">
+                <path d="M24 16H16.4945L12 9H19.5028L24 16Z" fill="#00494B" />
+                <path d="M9.53243 0L0 16H7.46757L17 0H9.53243Z" fill="#00494B" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="w-100">
+            {{ if job_title }}
+            <p class="ttu tracked mb2 pv2 dib" style="font-size: 10px">
+              {{ job_title }}
+            </p>
+            {{ /if }}
+            {{ if blurb }}
+            <p class="">{{ blurb }}</p>
+            {{ /if }}
+            <div class="tc mt3">
+              <button
+                  id="{{ name | slugify }}"
+                  class="ttu db no-underline tracked c-white bg-forest research-btn
+                    f8 db hover-bg-dark-green js-team-btn pointer center"
+                  style="border: 0">
+                Learn more
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {{ /team_members }}
+
+      <div
+          class="w-100 mb4 relative overflow-hidden research-team-card js-research-team-card flex items-center justify-center dn-l">
+        <div class="ph1 tc">
+          <h2 class="c-forest lh-title mb3 f2">{{ external_team_headline }}</h2>
+          <div class="c-dark-green article-content article-content-condensed
+                fs-20 mw7 ph5-l center mb5">
+            {{ external_team_description }}
+          </div>
+        </div>
+      </div>
+
+      {{# EXTERNAL TEAM MEMBERS =================================================== #}}
+      {{ external_team_members }}
+      <div
+          class="w-100 ba bc-forest mb4 relative overflow-hidden research-team-card
+            js-research-team-card db dn-l">
+        <img src="{{headshot}}" alt="{{headshot:alt}}" class="db w-100 h-100" />
+        {{#
+           <!-- OFF -->{{ responsive:headshot
+           class="js-lazy-img db w-100 h-100"
+           alt="{ headshot:alt }"
+           data-src="true"
+           quality="100"
+           }}
+        #}}
+        <div
+            class="bg-white bt bw2 bc-brick ph3 pv3 absolute left-0 right-0 research-team-card-overlay">
+          <div class="flex flex-wrap items-center justify-between mt1 mb3">
+            <h2 class="f5-l f6 c-dark-green f-main--b">{{ name }}</h2>
+          </div>
+
+          <div class="w-100">
+            {{ if job_title }}
+            <p class="ttu tracked mb2 pv2 dib" style="font-size: 10px">
+              {{ job_title }}
+            </p>
+            {{ /if }}
+            {{ if blurb }}
+            <p class="">{{ blurb }}</p>
+            {{ /if }}
+            <div class="tc mt3">
+              <button
+                  id="{{ name | slugify }}"
+                  class="ttu db no-underline tracked c-white bg-forest research-btn f8 db hover-bg-dark-green js-team-btn pointer center"
+                  style="border: 0">
+                Learn more
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {{ /external_team_members }}
+    </div>
+
+    <div class="dn db-l bg-{{external_background_color}} pt5 pb6-l pb6">
+      <div class="tc mw12 center mt0-l ph3-l ph5-m">
+        <h2 class="c-forest lh-solid mb4 fs-53 f1">
+          {{ external_team_headline }}
+        </h2>
+
+        <div
+            class="c-dark-green article-content article-content-condensed fs-20
+              mw7 ph5-l center mb5">
+          {{ external_team_description }}
+        </div>
+      </div>
+
+      <div class="mw12 center research-team-container ph3 ph5-m">
+        {{ external_team_members }}
+        <div
+            class="w-100 ba bc-forest mb4 relative overflow-hidden research-team-card js-research-team-card">
+          <img src="{{headshot}}" alt="{{headshot:alt}}" class="db w-100 h-100" />
+          {{#
+             <!-- OFF -->{{ responsive:headshot
+             class="js-lazy-img db w-100 h-100"
+             alt="{ headshot:alt }"
+             data-src="true"
+             quality="100"
+             }}
+          #}}
+          <div
+              class="bg-white bt bw2 bc-brick ph3 pv3 absolute left-0 right-0 research-team-card-overlay">
+            <div class="flex flex-wrap items-center justify-between mb2">
+              <h2 class="f5-l f6 c-dark-green f-main--b">{{ name }}</h2>
+            </div>
+
+            <div class="w-100">
+              {{ if job_title }}
+              <p class="ttu tracked mb2 pv2 dib" style="font-size: 10px">
+                {{ job_title }}
+              </p>
+              {{ /if }}
+              {{ if blurb }}
+              <p class="">{{ blurb }}</p>
+              {{ /if }}
+              <div class="tc mt3">
+                <button
+                    id="{{ name | slugify }}"
+                    class="ttu db no-underline tracked c-white bg-forest research-btn f8 db hover-bg-dark-green js-team-btn pointer center"
+                    style="border: 0">
+                  Learn more
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        {{ /external_team_members }}
+      </div>
+    </div>
+  </section>
+  <!-- /RESEARCH TEAM -->
+
+  <!-- TEAM MEMBERS POPUP -->
+  {{ team_members }}
+  <section
+      id="{{ name|lowercase|slugify }}-popup"
+      class="js-team-popup dn items-center justify-center fixed w-100 h-100 z-9999 top-0 left-0 right-0 overflow-scroll team-modal-container pt2">
+    <div class="flex items-center justify-center team-modal js-team-modal center">
+      <div
+          class="pa5-l pv5 ph4 mw8 center ba bc-forest bg-limestone relative"
+          style="border-top-width: 4px; box-shadow: 0px 6px 14px rgb(0 0 0 / 25%)">
+        <div class="flex flex-wrap mw9 center relative">
+          <div class="w-40-l w-100 pr3 order-1 order-0-l">
+            <img
+                class="ba bc-forest mw5 mw6-l w-100"
+                src="{{ glide :src="headshot" width="500" }}"
+                alt="{{ alt }}"
+                loading="lazy"
+            />
+
+            <div class="mt3">
+              <p class="f-main--b mb2">
+                <a class="c-forest no-underline" href="mailto:{{ email }}">{{ email }}</a>
+              </p>
+              <p>
+                {{ if linkedin_url }}
+                <a
+                    href="{{ linkedin_url }}"
+                    class="no-underline dim mr2"
+                    target="_blank"
+                ><svg
+                     width="24"
+                     height="24"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     xmlns="http://www.w3.org/2000/svg">
+                  <path
+                      d="M19 0H5C2.239 0 0 2.239 0 5V19C0 21.761 2.239 24 5 24H19C21.762 24 24 21.761 24 19V5C24 2.239 21.762 0 19 0ZM8 19H5V8H8V19ZM6.5 6.732C5.534 6.732 4.75 5.942 4.75 4.968C4.75 3.994 5.534 3.204 6.5 3.204C7.466 3.204 8.25 3.994 8.25 4.968C8.25 5.942 7.467 6.732 6.5 6.732ZM20 19H17V13.396C17 10.028 13 10.283 13 13.396V19H10V8H13V9.765C14.396 7.179 20 6.988 20 12.241V19Z"
+                      fill="#00494B" />
+                </svg>
+                </a>
+                {{ /if }}
+                {{ if twitter_url }}
+                <a
+                    href="{{ twitter_url }}"
+                    class="no-underline dim mr2"
+                    target="_blank"
+                ><svg
+                     width="24"
+                     height="24"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     xmlns="http://www.w3.org/2000/svg">
+                  <path
+                      d="M24 4.55509C23.117 4.94709 22.168 5.21109 21.172 5.33009C22.189 4.72109 22.97 3.75609 23.337 2.60609C22.386 3.17009 21.332 3.58009 20.21 3.80109C19.313 2.84409 18.032 2.24609 16.616 2.24609C13.437 2.24609 11.101 5.21209 11.819 8.29109C7.728 8.08609 4.1 6.12609 1.671 3.14709C0.381 5.36009 1.002 8.25509 3.194 9.72109C2.388 9.69509 1.628 9.47409 0.965 9.10509C0.911 11.3861 2.546 13.5201 4.914 13.9951C4.221 14.1831 3.462 14.2271 2.69 14.0791C3.316 16.0351 5.134 17.4581 7.29 17.4981C5.22 19.1211 2.612 19.8461 0 19.5381C2.179 20.9351 4.768 21.7501 7.548 21.7501C16.69 21.7501 21.855 14.0291 21.543 7.10409C22.505 6.40909 23.34 5.54209 24 4.55509Z"
+                      fill="#00494B" />
+                </svg>
+                </a>
+                {{ /if }}
+              </p>
+            </div>
+          </div>
+          <div class="w-60-l w-100 pl4-l mb4 mb0-l order-0 order-1-l nt2">
+            <div class="flex justify-between items-start mb3">
+              <h2 class="c-forest f-headline-l f1-m f2 lh-solid">{{ name }}</h2>
+              <button
+                  class="c-forest hover-dark-green b0 p0 mt2-l mt2 js-team-popup-close pointer"
+                  style="border: 0; background-color: transparent">
+                <svg
+                    width="42"
+                    height="41"
+                    viewBox="0 0 42 41"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                  <path
+                      d="M41.5 20.5C41.5 31.5344 32.3333 40.5 21 40.5C9.66674 40.5 0.5 31.5344 0.5 20.5C0.5 9.4656 9.66674 0.5 21 0.5C32.3333 0.5 41.5 9.4656 41.5 20.5Z"
+                      fill="currentColor"
+                      stroke="currentColor" />
+                  <line
+                      x1="25"
+                      y1="16.6192"
+                      x2="16.9647"
+                      y2="24.6545"
+                      stroke="#FCF9F7" />
+                  <line
+                      x1="24.7929"
+                      y1="24.7325"
+                      x2="16.6134"
+                      y2="16.5529"
+                      stroke="#FCF9F7" />
+                </svg>
+              </button>
+            </div>
+            <p class="ttu tracked mb3" style="font-size: 10px">{{ job_title }}</p>
+
+            <div class="article-content research-modal-content">{{ bio }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  {{ /team_members }}
+
+  {{ external_team_members }}
+  <section
+      id="{{ name|lowercase|slugify }}-popup"
+      class="js-team-popup dn items-center justify-center fixed w-100 h-100 z-9999
+        top-0 left-0 right-0 overflow-scroll team-modal-container pt2">
+    <div class="flex items-center justify-center team-modal js-team-modal center">
+      <div
+          class="pa5-l pv4 ph4 mw8 center ba bc-brick bg-white relative"
+          style="border-top-width: 4px; box-shadow: 0px 6px 14px rgb(0 0 0 / 25%)">
+        <div class="flex flex-wrap mw9 center relative">
+          <div class="w-40-l w-100 pr3 order-1 order-0-l">
+            <img
+                class="ba bc-forest mw5 mw6-l w-100"
+                src="{{ headshot }}"
+                alt="{{ alt }}"
+                loading="lazy" />
+
+            <div class="mt3">
+              <p class="f-main--b mb2">
+                <a class="c-forest no-underline"
+                    href="mailto:{{ email }}">{{ email }}</a>
+              </p>
+              <p>
+                {{ if linkedin_url }}
+                <a
+                    href="{{ linkedin_url }}"
+                    class="no-underline dim mr2"
+                    target="_blank"
+                ><svg
+                     width="24"
+                     height="24"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     xmlns="http://www.w3.org/2000/svg">
+                  <path
+                      d="M19 0H5C2.239 0 0 2.239 0 5V19C0 21.761 2.239 24 5 24H19C21.762 24 24 21.761 24 19V5C24 2.239 21.762 0 19 0ZM8 19H5V8H8V19ZM6.5 6.732C5.534 6.732 4.75 5.942 4.75 4.968C4.75 3.994 5.534 3.204 6.5 3.204C7.466 3.204 8.25 3.994 8.25 4.968C8.25 5.942 7.467 6.732 6.5 6.732ZM20 19H17V13.396C17 10.028 13 10.283 13 13.396V19H10V8H13V9.765C14.396 7.179 20 6.988 20 12.241V19Z"
+                      fill="#00494B" />
+                </svg>
+                </a>
+                {{ /if }}
+                {{ if twitter_url }}
+                <a
+                    href="{{ twitter_url }}"
+                    class="no-underline dim mr2"
+                    target="_blank"
+                ><svg
+                     width="24"
+                     height="24"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     xmlns="http://www.w3.org/2000/svg">
+                  <path
+                      d="M24 4.55509C23.117 4.94709 22.168 5.21109 21.172 5.33009C22.189 4.72109 22.97 3.75609 23.337 2.60609C22.386 3.17009 21.332 3.58009 20.21 3.80109C19.313 2.84409 18.032 2.24609 16.616 2.24609C13.437 2.24609 11.101 5.21209 11.819 8.29109C7.728 8.08609 4.1 6.12609 1.671 3.14709C0.381 5.36009 1.002 8.25509 3.194 9.72109C2.388 9.69509 1.628 9.47409 0.965 9.10509C0.911 11.3861 2.546 13.5201 4.914 13.9951C4.221 14.1831 3.462 14.2271 2.69 14.0791C3.316 16.0351 5.134 17.4581 7.29 17.4981C5.22 19.1211 2.612 19.8461 0 19.5381C2.179 20.9351 4.768 21.7501 7.548 21.7501C16.69 21.7501 21.855 14.0291 21.543 7.10409C22.505 6.40909 23.34 5.54209 24 4.55509Z"
+                      fill="#00494B" />
+                </svg>
+                </a>
+                {{ /if }}
+              </p>
+            </div>
+          </div>
+          <div class="w-60-l w-100 pl4-l mb4 mb0-l order-0 order-1-l nt2">
+            <div class="flex justify-between items-start mb3">
+              <h2 class="c-forest f-headline-l f1-m f2 lh-solid">{{ name }}</h2>
+              <button
+                  class="c-forest hover-dark-green b0 p0 mt2-l mt2 js-team-popup-close pointer"
+                  style="border: 0; background-color: transparent">
+                <svg
+                    width="42"
+                    height="41"
+                    viewBox="0 0 42 41"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                  <path
+                      d="M41.5 20.5C41.5 31.5344 32.3333 40.5 21 40.5C9.66674 40.5 0.5 31.5344 0.5 20.5C0.5 9.4656 9.66674 0.5 21 0.5C32.3333 0.5 41.5 9.4656 41.5 20.5Z"
+                      fill="currentColor"
+                      stroke="currentColor" />
+                  <line
+                      x1="25"
+                      y1="16.6192"
+                      x2="16.9647"
+                      y2="24.6545"
+                      stroke="#FCF9F7" />
+                  <line
+                      x1="24.7929"
+                      y1="24.7325"
+                      x2="16.6134"
+                      y2="16.5529"
+                      stroke="#FCF9F7" />
+                </svg>
+              </button>
+            </div>
+            <p class="ttu tracked mb3" style="font-size: 10px">{{ job_title }}</p>
+
+            <div class="article-content research-modal-content">{{ bio }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  {{ /external_team_members }}
+  <!-- /POPUPS -->
+</chop>

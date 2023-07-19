@@ -1,0 +1,4 @@
+.mypy_cache
+public/css
+public/js
+public/views

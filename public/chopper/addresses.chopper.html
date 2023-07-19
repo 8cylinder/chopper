@@ -1,0 +1,116 @@
+<script chopper:file="base/addresses.js">
+  function set_border(){
+    const V_BORDER = 'address-separator-v'
+    const H_BORDER = 'address-separator-h'
+    let cells = document.querySelectorAll('.addresses .address')
+
+    if(cells.length){
+      let next_offset = cells[0].offsetTop
+      let counter = 0
+
+      let use_horizontal = cells[0].offsetTop < cells[1].offsetTop
+
+      for(let cell of cells){
+        cell.classList.add(V_BORDER)
+        let this_offset = cell.offsetTop
+
+        counter++;
+        if(cells[counter]){
+          next_offset = cells[counter].offsetTop
+        }
+        else{
+          next_offset = Number.MAX_SAFE_INTEGER
+        }
+
+        // this cell is last in row
+        if(this_offset < next_offset){
+          cell.classList.remove(V_BORDER)
+        }
+
+        // all in one column
+        if(use_horizontal){
+          if(counter < cells.length){
+            cell.classList.add(H_BORDER)
+          }
+          cell.classList.add('vertical-layout')
+        }
+        else{
+          cell.classList.remove(H_BORDER)
+        }
+      }
+    }
+  }
+
+  window.addEventListener('resize', set_border)
+  // let timeout_function_id
+  // window.addEventListener('resize', ()=>{
+  //   clearTimeout(timeout_function_id);
+  //   timeout_function_id = setTimeout(set_border, 100)
+  // })
+  set_border()
+</script>
+
+
+<style chopper:file="components/addresses.scss" chopper:isolate="isolate">
+  .addresses{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .address{
+    flex: 0 1 290px;
+  }
+  .address-separator-v{
+    border-right: 1px solid rgba(255, 255, 255, 0.5);
+  }
+  .address-separator-h{
+    border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+  }
+  .vertical-layout{
+    padding-bottom: 2em;
+    margin-top: 0;
+  }
+</style>
+
+
+<chop chopper:file="partials/blocks/addresses.antlers.html">
+  {{ if config:app:debug }}
+    <!-- resources/views/partials/addresses.antlers.html -->
+  {{ /if }}
+
+  <section class="pt6 pb5 ph5-l ph4 c-white
+        {{ if background_color }}
+        bg-{{background_color}}
+        {{ elseif contact_background_color }}
+        bg-{{contact_background_color}}
+        {{ else }}
+        bg-forest
+        {{ /if }}
+        ">
+
+    <div class="mw9 center">
+      <h2 class="h2 tc mb4">
+        {{ if contact_title }}
+          {{contact_title}}
+        {{ elseif title }}
+          {{title}}
+        {{ else }}
+          Office locations
+        {{ /if }}
+      </h2>
+
+      <div class="pt3 pb4">
+        <ul class="addresses">
+          {{ locations }}
+          <li class="address nowrap tc mb4 mt4
+                {{ if last }}pt0 mt0{{ /if }}">
+            <h5 class="footer-headline f-main--b"><strong>{{title}}</strong></h5>
+            <div class="">{{address}}</div>
+            <div class="">{{country}}</div>
+          </li>
+          {{ /locations }}
+        </ul>
+      </div>
+    </div>
+  </section>
+</chop>
