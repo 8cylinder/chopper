@@ -49,15 +49,15 @@ class Action(Enum):
     UNCHANGED = 'File unchanged'
 
 
-def info(action: Action, filename: str, dry_run: bool = False, last: bool = False) -> None:
+def info(action: Action, filename: str | Path, dry_run: bool = False, last: bool = False) -> None:
     dry_run = ' (DRY RUN)' if dry_run else ''
-    choppa = f'{C.MAGENTA}{C.BOLD}CHOPPER:{C.RESET}'
-    task = f'{C.BGREEN}{action.value}{dry_run}{C.RESET}'
-    filename = f'{C.BBLUE}{filename}{C.RESET}'
-    tree = ''
+    choppa: str = f'{C.MAGENTA}{C.BOLD}CHOPPER:{C.RESET}'
+    task: str = f'{C.BGREEN}{action.value}{dry_run}{C.RESET}'
+    filename: str = f'{C.BBLUE}{filename}{C.RESET}'
+    tree: str = ''
     if action != action.CHOP:
         tree = '└─ ' if last else '├─ '
-    date = ''
+    date: str = ''
     if action == action.CHOP:
         date = f'{C.BBLACK}{NOW}{C.RESET}'
     print(f'{choppa} {tree}{task} {filename}  {date}')
@@ -65,9 +65,9 @@ def info(action: Action, filename: str, dry_run: bool = False, last: bool = Fals
 
 def error(action: Action, filename: str, msg: str, dry_run: bool = False) -> None:
     dry_run = ' (DRY RUN)' if dry_run else ''
-    choppa = f'{C.REDB}{C.BOLD}CHOPPER:{C.RESET}'
-    action = f'{C.REDB}{C.BOLD}{action.value}{dry_run}{C.RESET}'
-    filename = f'{C.BBLUE}{filename}{C.RESET}'
+    choppa: str = f'{C.REDB}{C.BOLD}CHOPPER:{C.RESET}'
+    action: str = f'{C.REDB}{C.BOLD}{action.value}{dry_run}{C.RESET}'
+    filename: str = f'{C.BBLUE}{filename}{C.RESET}'
     print(choppa, action, msg, filename, file=sys.stderr)
 
 
@@ -77,6 +77,7 @@ class ChopperParser(HTMLParser):
     path: str = None
     parsed_data: list[dict[str, Any]] = []
     start: tuple = None
+    isolate: bool = False
 
     def handle_starttag(self, tag, attrs):
         if tag in self.tags:
@@ -85,6 +86,8 @@ class ChopperParser(HTMLParser):
                 if attr[0] == 'chopper:file':
                     self.path = attr[1]
                     self.start = self.getpos()
+                if attr[0] == 'chopper:isolate':
+                    self.isolate = True
 
     def handle_endtag(self, tag):
         if tag in self.tags:
@@ -93,12 +96,14 @@ class ChopperParser(HTMLParser):
                 self.parsed_data.append({
                     'path': self.path,
                     'tag': tag,
+                    'isolate': self.isolate,
                     'start': self.start,
                     'end': self.getpos(),
                 })
 
 
 def find_chopper_files(source: Path) -> list[str]:
+    """Find all the chopper files in the source directory."""
     if not os.path.exists(source):
         raise FileNotFoundError(
             errno.ENOENT, os.strerror(errno.ENOENT), source)
@@ -118,6 +123,7 @@ def find_chopper_files(source: Path) -> list[str]:
 
 
 def chop(source, types, comments, warn=False):
+    """Chop up the source file into the blocks defined by the chopper tags."""
     info(Action.CHOP, source)
     with open(source, 'r') as f:
         source_html = f.read()
@@ -152,6 +158,11 @@ def chop(source, types, comments, warn=False):
 
 
 def magic_vars(path, source):
+    """Replace magic variables in the path with the source file name.
+
+    If the source file is named `hero.chopper.html` and the chopper:file
+    attribute is `assets/{NAME}.css`, return the string `assets/hero.css`.
+    """
     source = Path(source)
     source_name = source.name.replace(CHOPPER_NAME, '')
     new_name = path.format(NAME=source_name)
@@ -159,6 +170,7 @@ def magic_vars(path, source):
 
 
 def make_file(block, warn=False, last=False):
+    """Create or update the file specified in the chopper:file attribute."""
     content = f'{block["content"]}'
     partial = Path(os.path.join(block['base_path'], block['path']))
     if not DRYRUN:
@@ -177,6 +189,10 @@ def make_file(block, warn=False, last=False):
 
 
 def write_to_file(block, content, f, last, partial, warn, newfile):
+    """Write the content to the file if it differs from the current contents.
+
+    Show a diff if the file contents differ and the warn flag is set.
+    """
     try:
         current_contents = f.read()
     except io.UnsupportedOperation:
@@ -282,10 +298,14 @@ def main():
     global DRYRUN
     DRYRUN = args.dry_run
 
-    if os.path.isdir(args.source_dir):
-        chopper_files = find_chopper_files(args.source_dir)
+    if os.path.exists(args.source_dir):
+        if os.path.isdir(args.source_dir):
+            chopper_files = find_chopper_files(args.source_dir)
+        else:
+            chopper_files = [args.source_dir]
     else:
-        chopper_files = [args.source_dir]
+        error(Action.CHOP, args.source_dir, 'No such file or directory:')
+        sys.exit(1)
 
     types = {
         'script': args.script_dir or '',
