@@ -77,7 +77,7 @@ class ChopperParser(HTMLParser):
     path: str = None
     parsed_data: list[dict[str, Any]] = []
     start: tuple = None
-    isolate: bool = False
+    isolate: str = ''
 
     def handle_starttag(self, tag, attrs):
         if tag in self.tags:
@@ -86,8 +86,10 @@ class ChopperParser(HTMLParser):
                 if attr[0] == 'chopper:file':
                     self.path = attr[1]
                     self.start = self.getpos()
-                if attr[0] == 'chopper:isolate':
-                    self.isolate = True
+                    # print('A', self.getpos())
+                elif attr[0] == 'chopper:isolate':
+                    self.isolate = attr[1]
+                    # print('B', self.getpos())
 
     def handle_endtag(self, tag):
         if tag in self.tags:
@@ -100,6 +102,8 @@ class ChopperParser(HTMLParser):
                     'start': self.start,
                     'end': self.getpos(),
                 })
+                self.isolate = ''
+                self.path = ''
 
 
 def find_chopper_files(source: Path) -> list[str]:
@@ -146,6 +150,8 @@ def chop(source, types, comments, warn=False):
         block['content'] = content
         if comments:
             c = comments[block['tag']]
+            block['comment_open'] = c[0]
+            block['comment_close'] = c[1]
             if not raw_content:
                 block['content'] = f'{c[0]}Chopper: No content{c[1]}'
             # text = [source, block['path']]
@@ -154,7 +160,10 @@ def chop(source, types, comments, warn=False):
             block['content'] = f'\n{comment}\n\n{block["content"]}'
 
         last = False if block_count != i else True
-        make_file(block, warn, last)
+        if block['isolate']:
+            insert_into_file(block, warn, last)
+        else:
+            make_file(block, warn, last)
 
 
 def magic_vars(path, source):
@@ -172,20 +181,49 @@ def magic_vars(path, source):
 def make_file(block, warn=False, last=False):
     """Create or update the file specified in the chopper:file attribute."""
     content = f'{block["content"]}'
-    partial = Path(os.path.join(block['base_path'], block['path']))
+    partial_file = Path(os.path.join(block['base_path'], block['path']))
     if not DRYRUN:
-        if partial.parent.mkdir(parents=True, exist_ok=True):
-            info(Action.DIR, partial.parent)
+        if partial_file.parent.mkdir(parents=True, exist_ok=True):
+            info(Action.DIR, partial_file.parent)
 
-        if partial.exists():
-            with open(partial, 'r+') as f:
-                write_to_file(block, content, f, last, partial, warn, False)
+        if partial_file.exists():
+            with open(partial_file, 'r+') as f:
+                write_to_file(block, content, f, last, partial_file, warn, False)
         else:
-            with open(partial, 'w') as f:
-                write_to_file(block, content, f, last, partial, False, True)
+            with open(partial_file, 'w') as f:
+                write_to_file(block, content, f, last, partial_file, False, True)
 
     else:
-        info(Action.WRITE, partial, dry_run=True, last=last)
+        info(Action.WRITE, partial_file, dry_run=True, last=last)
+
+
+def insert_into_file(block, warn=False, last=False):
+    pp(block)
+    content = f'{block["content"]}'
+    dest_file = Path(os.path.join(block['base_path'], block['path']))
+    comment_open = block['comment_open']
+    comment_close = block['comment_close']
+    block_id = block['isolate']
+    start_delim = f'{comment_open}START {block_id}{comment_close}'
+    end_delim = f'{comment_open}END {block_id}{comment_close}'
+
+
+    if dest_file.exists():
+        with open(dest_file, 'r+') as f:
+            file_lines = f.readlines()
+
+        for line in file_lines:
+            delete_line = False
+            if start_delim in line:
+                delete_line = True
+            elif end_delim in line:
+                delete_line = False
+            if delete_line:
+                print(line)
+
+    else:
+        make_file(block, warn, last)
+
 
 
 def write_to_file(block, content, f, last, partial, warn, newfile):
