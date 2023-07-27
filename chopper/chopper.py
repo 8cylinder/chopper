@@ -85,11 +85,14 @@ class ChopperParser(HTMLParser):
             for attr in attrs:
                 if attr[0] == 'chopper:file':
                     self.path = attr[1]
-                    self.start = self.getpos()
-                    # print('A', self.getpos())
+                    pos = list(self.getpos())
+                    pos[0] = pos[0] - 1
+                    extra = [len(i) for i in self.get_starttag_text().split("\n")]
+                    for line in extra:
+                        pos = (pos[0] + 1, line)
+                    self.start = pos
                 elif attr[0] == 'chopper:isolate':
                     self.isolate = attr[1]
-                    # print('B', self.getpos())
 
     def handle_endtag(self, tag):
         if tag in self.tags:
