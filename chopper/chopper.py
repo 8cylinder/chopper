@@ -49,7 +49,9 @@ class Action(Enum):
     UNCHANGED = 'File unchanged'
 
 
-def info(action: Action, filename: str | Path, dry_run: bool = False, last: bool = False) -> None:
+def info(
+    action: Action, filename: str | Path, dry_run: bool = False, last: bool = False
+) -> None:
     dry_run = ' (DRY RUN)' if dry_run else ''
     choppa: str = f'{C.MAGENTA}{C.BOLD}CHOPPER:{C.RESET}'
     task: str = f'{C.BGREEN}{action.value}{dry_run}{C.RESET}'
@@ -98,13 +100,15 @@ class ChopperParser(HTMLParser):
         if tag in self.tags:
             self.tree.pop()
             if not self.tree:
-                self.parsed_data.append({
-                    'path': self.path,
-                    'tag': tag,
-                    'isolate': self.isolate,
-                    'start': self.start,
-                    'end': self.getpos(),
-                })
+                self.parsed_data.append(
+                    {
+                        'path': self.path,
+                        'tag': tag,
+                        'isolate': self.isolate,
+                        'start': self.start,
+                        'end': self.getpos(),
+                    }
+                )
                 self.isolate = ''
                 self.path = ''
 
@@ -112,12 +116,10 @@ class ChopperParser(HTMLParser):
 def find_chopper_files(source: Path) -> list[str]:
     """Find all the chopper files in the source directory."""
     if not os.path.exists(source):
-        raise FileNotFoundError(
-            errno.ENOENT, os.strerror(errno.ENOENT), source)
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), source)
 
     if not os.path.isdir(source):
-        raise NotADirectoryError(
-            errno.ENOTDIR, os.strerror(errno.ENOTDIR), source)
+        raise NotADirectoryError(errno.ENOTDIR, os.strerror(errno.ENOTDIR), source)
 
     chopper_files = []
 
@@ -201,7 +203,6 @@ def make_file(block, warn=False, last=False):
 
 
 def insert_into_file(block, warn=False, last=False):
-    pp(block)
     content = f'{block["content"]}'
     dest_file = Path(os.path.join(block['base_path'], block['path']))
     comment_open = block['comment_open']
@@ -209,7 +210,6 @@ def insert_into_file(block, warn=False, last=False):
     block_id = block['isolate']
     start_delim = f'{comment_open}START {block_id}{comment_close}'
     end_delim = f'{comment_open}END {block_id}{comment_close}'
-
 
     if dest_file.exists():
         with open(dest_file, 'r+') as f:
@@ -226,7 +226,6 @@ def insert_into_file(block, warn=False, last=False):
 
     else:
         make_file(block, warn, last)
-
 
 
 def write_to_file(block, content, f, last, partial, warn, newfile):
@@ -264,11 +263,7 @@ def write_to_file(block, content, f, last, partial, warn, newfile):
 
 def show_diff(a, b, fname_a, fname_b):
     diff = difflib.context_diff(
-        a.splitlines(),
-        b.splitlines(),
-        tofile=fname_a,
-        fromfile=fname_b,
-        n=0
+        a.splitlines(), b.splitlines(), tofile=fname_a, fromfile=fname_b, n=0
     )
     print()
     for line in diff:
@@ -295,44 +290,41 @@ def show_diff(a, b, fname_a, fname_b):
 
 
 def main():
-    help_msg = dedent('''
+    help_msg = dedent(
+        '''
       Chop files into their separate types, style, script and html.
 
       Get to the choppa!
-    ''')
+    '''
+    )
 
     parser = argparse.ArgumentParser(
-        description=help_msg,
-        formatter_class=argparse.RawDescriptionHelpFormatter)
+        description=help_msg, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
 
-    parser.add_argument(
-        '-s', '--script-dir',
-        help='Destination for the script files')
-    parser.add_argument(
-        '-c', '--style-dir',
-        help='Destination for the style files')
-    parser.add_argument(
-        '-m', '--html-dir',
-        help='Destination for the html files')
+    parser.add_argument('-s', '--script-dir', help='Destination for the script files')
+    parser.add_argument('-c', '--style-dir', help='Destination for the style files')
+    parser.add_argument('-m', '--html-dir', help='Destination for the html files')
     parser.add_argument(
         '--comments',
         nargs='?',
         default=None,
         const='STANDARD_COMMENTS',
-        help='Add comments to generated files. Separate start and end comments with a comma')
+        help='Add comments to generated files. Separate start and end comments with a comma',
+    )
     parser.add_argument(
         '--warn',
         action='store_true',
-        help='Warn when the file contents differs instead of overwriting it.'
+        help='Warn when the file contents differs instead of overwriting it.',
     )
     parser.add_argument(
-        '--dry-run',
-        action="store_true",
-        help="Do not write any file to the filesystem")
+        '--dry-run', action="store_true", help="Do not write any file to the filesystem"
+    )
     parser.add_argument(
         'source_dir',
         metavar='SOURCE-DIR',
-        help='The directory that contains the chopper files.')
+        help='The directory that contains the chopper files.',
+    )
 
     args = parser.parse_args()
 
