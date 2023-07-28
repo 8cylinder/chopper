@@ -180,7 +180,15 @@ def magic_vars(path, source):
     """
     source = Path(source)
     source_name = source.name.replace(CHOPPER_NAME, '')
-    new_name = path.format(NAME=source_name)
+    fields = {
+        'NAME': source_name,
+        'THIS-NAME': source,
+    }
+    try:
+        new_name = path.format(**fields)
+    except KeyError:
+        error(Action.CHOP, str(source), 'Invalid magic variable in attribute:')
+        sys.exit(1)
     return new_name
 
 
