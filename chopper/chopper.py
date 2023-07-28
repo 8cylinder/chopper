@@ -147,6 +147,7 @@ def chop(source, types, comments, warn=False):
     for i, block in enumerate(data):
         block['base_path'] = types[block['tag']]
         block['path'] = magic_vars(block['path'], source)
+        block['isolate'] = magic_vars(block['isolate'], source)
         start = block['start'][0]
         end = block['end'][0] - 1
         raw_content = source_html[start:end]
