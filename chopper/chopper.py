@@ -5,7 +5,6 @@ import os
 import sys
 import errno
 import io
-import re
 import argparse
 from textwrap import dedent
 from pprint import pprint as pp
@@ -162,7 +161,7 @@ def chop(source, types, comments, warn=False):
                 block['content'] = f'{c[0]}Chopper: No content{c[1]}'
             # text = [source, block['path']]
             dest = Path(os.path.join(block['base_path'], block['path']))
-            comment = f'{c[0]}{source} - {dest}{c[1]}'
+            comment = f'{c[0]}{source} -> {dest}{c[1]}'
             block['content'] = f'\n{comment}\n\n{block["content"]}'
 
         last = False if block_count != i else True
@@ -212,13 +211,13 @@ def make_file(block, warn=False, last=False):
 
 
 def insert_into_file(block, warn=False, last=False):
-    content = f'{block["content"]}'
     dest_file = Path(os.path.join(block['base_path'], block['path']))
     comment_open = block['comment_open']
     comment_close = block['comment_close']
     block_id = block['isolate']
     start_delim = f'{comment_open}START {block_id}{comment_close}'
     end_delim = f'{comment_open}END {block_id}{comment_close}'
+    print(start_delim, end_delim)
 
     if dest_file.exists():
         with open(dest_file, 'r+') as f:
