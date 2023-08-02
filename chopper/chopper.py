@@ -168,7 +168,7 @@ def chop(source, types, comments, warn=False):
         if block['isolate']:
             insert_into_file(block, warn, last)
         else:
-            make_file(block, warn, last)
+            new_or_overwrite_file(block, warn, last)
 
 
 def magic_vars(path, source):
@@ -191,7 +191,7 @@ def magic_vars(path, source):
     return new_name
 
 
-def make_file(block, warn=False, last=False):
+def new_or_overwrite_file(block, warn=False, last=False):
     """Create or update the file specified in the chopper:file attribute."""
     content = f'{block["content"]}'
     partial_file = Path(os.path.join(block['base_path'], block['path']))
@@ -215,25 +215,43 @@ def insert_into_file(block, warn=False, last=False):
     comment_open = block['comment_open']
     comment_close = block['comment_close']
     block_id = block['isolate']
-    start_delim = f'{comment_open}START {block_id}{comment_close}'
-    end_delim = f'{comment_open}END {block_id}{comment_close}'
-    print(start_delim, end_delim)
+    start_delim = f'\n{comment_open}START {block_id}{comment_close}'
+    end_delim = f'\n{comment_open}END {block_id}{comment_close}\n'
+    # print(start_delim, end_delim)
 
     if dest_file.exists():
         with open(dest_file, 'r+') as f:
             file_lines = f.readlines()
 
+        block_exists = False
+        block_start = len(file_lines)
+        block_end = len(file_lines)
         for line in file_lines:
             delete_line = False
             if start_delim in line:
                 delete_line = True
+                block_start = file_lines.index(line)
             elif end_delim in line:
                 delete_line = False
+                block_end = file_lines.index(line)
             if delete_line:
                 print(line)
 
+        if block_start != len(file_lines):
+            for i, line in enumerate(file_lines):
+                if block_start > i and block_end < i:
+                    # file_lines.pop(i)
+                    print(line)
+        else:
+            print('no block found')
+            file_lines.append(start_delim)
+            file_lines.append(block['content'])
+            file_lines.append(end_delim)
+
+        print(''.join(file_lines))
+
     else:
-        make_file(block, warn, last)
+        new_or_overwrite_file(block, warn, last)
 
 
 def write_to_file(block, content, f, last, partial, warn, newfile):
