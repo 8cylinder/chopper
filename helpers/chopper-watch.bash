@@ -14,9 +14,9 @@ initializeANSI()
     esc=""
 
     # blackf="${esc}[30m"
-    # redf="${esc}[31m"
+    redf="${esc}[31m"
     # greenf="${esc}[32m"
-    # yellowf="${esc}[33m"
+    yellowf="${esc}[33m"
     # bluef="${esc}[34m"
     # purplef="${esc}[35m"
     # cyanf="${esc}[36m"
@@ -57,6 +57,8 @@ cmd="python3 $chopper
 # needs investigation.
 if ! $cmd --warn $watch_dir; then
     echo "${redb}${whitef}${boldon}chopper-watch:${boldoff} files are different, exiting.${reset}"
+    echo "${redf}Run this command if you want to overwrite the dest file:${reset}"
+    echo "${yellowf}${cmd} ${watch_dir}CHOPPER-FILE${reset}"
     exit
 fi
 
