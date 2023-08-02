@@ -130,7 +130,7 @@ def find_chopper_files(source: Path) -> list[str]:
     return chopper_files
 
 
-def chop(source, types, comments, warn=False):
+def chop(source, types, insert_comments, comments, warn=False):
     """Chop up the source file into the blocks defined by the chopper tags."""
     info(Action.CHOP, source)
     with open(source, 'r') as f:
@@ -153,12 +153,9 @@ def chop(source, types, comments, warn=False):
         content = '\n'.join(raw_content)
         content = dedent(content)
         block['content'] = content
-        if comments:
-            c = comments[block['tag']]
-            block['comment_open'] = c[0]
-            block['comment_close'] = c[1]
-            if not raw_content:
-                block['content'] = f'{c[0]}Chopper: No content{c[1]}'
+        c = comments[block['tag']]
+        block['comment_open'], block['comment_close'] = c
+        if insert_comments:
             # text = [source, block['path']]
             dest = Path(os.path.join(block['base_path'], block['path']))
             comment = f'{c[0]}{source} -> {dest}{c[1]}'
@@ -330,13 +327,7 @@ def main():
     parser.add_argument('-s', '--script-dir', help='Destination for the script files')
     parser.add_argument('-c', '--style-dir', help='Destination for the style files')
     parser.add_argument('-m', '--html-dir', help='Destination for the html files')
-    parser.add_argument(
-        '--comments',
-        nargs='?',
-        default=None,
-        const='STANDARD_COMMENTS',
-        help='Add comments to generated files. Separate start and end comments with a comma',
-    )
+    parser.add_argument('--comments', action='store_true', help='Add comments to generated files')
     parser.add_argument(
         '--warn',
         action='store_true',
@@ -371,24 +362,14 @@ def main():
         'chop': args.html_dir or '',
     }
 
-    if args.comments == 'STANDARD_COMMENTS':
-        comment_types = {
-            'script': ['// ', ''],
-            'style': ['/* ', ' */'],
-            'chop': ['<!-- ', ' -->'],
-        }
-    elif args.comments:
-        comments = args.comments.split(',')
-        comment_types = {
-            'script': comments,
-            'style': comments,
-            'chop': comments,
-        }
-    else:
-        comment_types = None
+    comment_types = {
+        'script': ['// ', ''],
+        'style': ['/* ', ' */'],
+        'chop': ['<!-- ', ' -->'],
+    }
 
     for source in chopper_files:
-        chop(source, types, comment_types, warn=args.warn)
+        chop(source, types, args.comments, comment_types, warn=args.warn)
     print()
 
 
