@@ -12,7 +12,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from enum import Enum
 import difflib
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Union
 
 NOW = datetime.now().isoformat(timespec='seconds', sep=',')
 DRYRUN = False
@@ -49,7 +49,7 @@ class Action(Enum):
 
 
 def info(
-    action: Action, filename: str | Path, dry_run: bool = False, last: bool = False
+    action: Action, filename: Union[str, Path], dry_run: bool = False, last: bool = False
 ) -> None:
     dry_run = ' (DRY RUN)' if dry_run else ''
     choppa: str = f'{C.MAGENTA}{C.BOLD}CHOPPER:{C.RESET}'
@@ -195,19 +195,16 @@ def make_file(block, warn=False, last=False):
     """Create or update the file specified in the chopper:file attribute."""
     content = f'{block["content"]}'
     partial_file = Path(os.path.join(block['base_path'], block['path']))
-    if not DRYRUN:
-        if partial_file.parent.mkdir(parents=True, exist_ok=True):
-            info(Action.DIR, partial_file.parent)
 
-        if partial_file.exists():
-            with open(partial_file, 'r+') as f:
+    if partial_file.parent.mkdir(parents=True, exist_ok=True):
+        info(Action.DIR, partial_file.parent)
+
+    if partial_file.exists():
+        with open(partial_file, 'r+') as f:
                 write_to_file(block, content, f, last, partial_file, warn, False)
-        else:
-            with open(partial_file, 'w') as f:
-                write_to_file(block, content, f, last, partial_file, False, True)
-
     else:
-        info(Action.WRITE, partial_file, dry_run=True, last=last)
+        with open(partial_file, 'w') as f:
+            write_to_file(block, content, f, last, partial_file, False, True)
 
 
 def insert_into_file(block, warn=False, last=False):
@@ -256,15 +253,17 @@ def write_to_file(block, content, f, last, partial, warn, newfile):
             error(Action.WRITE, partial, 'File contents differ')
             show_diff(content, current_contents, block['path'], str(partial))
             print()
-            sys.exit(1)
+            if not DRYRUN:
+                sys.exit(1)
         else:
             if newfile:
                 info(Action.NEW, partial, last=last)
             else:
                 info(Action.WRITE, partial, last=last)
-            f.seek(0)
-            f.write(content)
-            f.truncate()
+            if not DRYRUN:
+                f.seek(0)
+                f.write(content)
+                f.truncate()
     else:
         info(Action.UNCHANGED, partial, last=last)
 
