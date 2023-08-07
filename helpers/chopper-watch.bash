@@ -58,7 +58,8 @@ cmd="python3 $chopper
 if ! $cmd --warn $watch_dir; then
     echo "${redb}${whitef}${boldon}chopper-watch:${boldoff} files are different, exiting.${reset}"
     echo "${redf}Run this command if you want to overwrite the dest file:${reset}"
-    echo "${yellowf}${cmd} ${watch_dir}CHOPPER-FILE${reset}"
+    single_line=$(echo $cmd | sed -e 's/ */ /' | tr -d '\n')
+    echo "${yellowf}${single_line} ${watch_dir}CHOPPER-FILE${reset}"
     exit
 fi
 
