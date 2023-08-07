@@ -141,12 +141,8 @@ def chop(source, types, insert_comments, comments, warn=False):
     for i, block in enumerate(data):
         block['base_path'] = types[block['tag']]
         block['path'] = magic_vars(block['path'], source)
-        start = block['start'][0]
-        end = block['end'][0] - 1
-        raw_content = source_html[start:end]
-        content = '\n'.join(raw_content)
-        content = dedent(content)
-        block['content'] = content
+        block['content'] = extract_block(block['start'], block['end'], source_html)
+
         c = comments[block['tag']]
         block['comment_open'], block['comment_close'] = c
         if insert_comments:
@@ -158,6 +154,30 @@ def chop(source, types, insert_comments, comments, warn=False):
         last = False if block_count != i else True
         new_or_overwrite_file(block, warn, last)
 
+
+def extract_block(start: List, end: List, source_html: List) -> str:
+    """Extract the block of code from the source.
+
+    Extract from the end of the start tag to the start of the end tag."""
+
+    start_line: int = start[0] - 1
+    start_char: int = start[1]
+    end_line: int = end[0]
+    end_char: int = end[1]
+
+    extracted: array = source_html[start_line:end_line]
+    if len(extracted) == 1:
+        extracted[0] = extracted[0][start_char:end_char]
+    else:
+        extracted[0] = extracted[0][start_char:]
+        extracted[-1] = extracted[-1][:end_char]
+
+    extracted = '\n'.join(extracted)
+    extracted = dedent(extracted)
+    extracted = extracted.strip()
+    extracted = f'{extracted}\n'
+
+    return extracted
 
 
 def magic_vars(path, source):
