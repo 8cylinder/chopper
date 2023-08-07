@@ -78,7 +78,6 @@ class ChopperParser(HTMLParser):
     path: str = None
     parsed_data: list[dict[str, Any]] = []
     start: tuple = None
-    isolate: str = ''
 
     def handle_starttag(self, tag, attrs):
         if tag in self.tags:
@@ -92,8 +91,6 @@ class ChopperParser(HTMLParser):
                     for line in extra:
                         pos = (pos[0] + 1, line)
                     self.start = pos
-                elif attr[0] == 'chopper:isolate':
-                    self.isolate = attr[1]
 
     def handle_endtag(self, tag):
         if tag in self.tags:
@@ -103,12 +100,10 @@ class ChopperParser(HTMLParser):
                     {
                         'path': self.path,
                         'tag': tag,
-                        'isolate': self.isolate,
                         'start': self.start,
                         'end': self.getpos(),
                     }
                 )
-                self.isolate = ''
                 self.path = ''
 
 
@@ -146,7 +141,6 @@ def chop(source, types, insert_comments, comments, warn=False):
     for i, block in enumerate(data):
         block['base_path'] = types[block['tag']]
         block['path'] = magic_vars(block['path'], source)
-        block['isolate'] = magic_vars(block['isolate'], source)
         start = block['start'][0]
         end = block['end'][0] - 1
         raw_content = source_html[start:end]
@@ -162,10 +156,8 @@ def chop(source, types, insert_comments, comments, warn=False):
             block['content'] = f'\n{comment}\n\n{block["content"]}'
 
         last = False if block_count != i else True
-        if block['isolate']:
-            insert_into_file(block, warn, last)
-        else:
-            new_or_overwrite_file(block, warn, last)
+        new_or_overwrite_file(block, warn, last)
+
 
 
 def magic_vars(path, source):
@@ -204,50 +196,6 @@ def new_or_overwrite_file(block, warn=False, last=False):
             write_to_file(block, content, f, last, partial_file, False, True)
 
 
-def insert_into_file(block, warn=False, last=False):
-    dest_file = Path(os.path.join(block['base_path'], block['path']))
-    comment_open = block['comment_open']
-    comment_close = block['comment_close']
-    block_id = block['isolate']
-    start_delim = f'\n{comment_open}START {block_id}{comment_close}'
-    end_delim = f'\n{comment_open}END {block_id}{comment_close}\n'
-    # print(start_delim, end_delim)
-
-    if dest_file.exists():
-        with open(dest_file, 'r+') as f:
-            file_lines = f.readlines()
-
-        block_exists = False
-        block_start = len(file_lines)
-        block_end = len(file_lines)
-        for line in file_lines:
-            delete_line = False
-            if start_delim in line:
-                delete_line = True
-                block_start = file_lines.index(line)
-            elif end_delim in line:
-                delete_line = False
-                block_end = file_lines.index(line)
-            if delete_line:
-                print(line)
-
-        if block_start != len(file_lines):
-            for i, line in enumerate(file_lines):
-                if block_start > i and block_end < i:
-                    # file_lines.pop(i)
-                    print(line)
-        else:
-            print('no block found')
-            file_lines.append(start_delim)
-            file_lines.append(block['content'])
-            file_lines.append(end_delim)
-
-        print(''.join(file_lines))
-
-    else:
-        new_or_overwrite_file(block, warn, last)
-
-
 def write_to_file(block, content, f, last, partial, warn, newfile):
     """Write the content to the file if it differs from the current contents.
 
@@ -256,12 +204,7 @@ def write_to_file(block, content, f, last, partial, warn, newfile):
     try:
         current_contents = f.read()
     except io.UnsupportedOperation:
-        current_contents = None  # ?????????????????????????????
-
-    # print('>>>', current_contents)
-    # current_contents = f'{current_contents.rstrip()}'
-    # show_diff(content, current_contents, block['path'], str(partial))
-    # print(len(current_contents), len(content))
+        current_contents = None
 
     if current_contents != content:
         if warn:
