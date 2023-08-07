@@ -328,7 +328,8 @@ def main():
     comment_types = {
         'script': ['// ', ''],
         'style': ['/* ', ' */'],
-        'chop': ['<!-- ', ' -->'],
+        # 'chop': ['<!-- ', ' -->'],
+        'chop': ['{{# ', ' #}}'],
     }
 
     for source in chopper_files:
