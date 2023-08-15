@@ -21,20 +21,27 @@ CHOPPER_NAME = '.chopper.html'
 
 class C:
     MAGENTA = '\033[95m'
+
     RED = '\033[31m'
+    BRED = '\033[91m'
     REDB = '\033[41m'
+
     BLUE = '\033[34m'
     BBLUE = '\033[94m'
     BLUEB = '\033[44m'
+
     BCYAN = '\033[96m'
     CYAN = '\033[36m'
     CYANB = '\033[46m'
+
     GREEN = '\033[32m'
     BGREEN = '\033[92m'
     GREENB = '\033[42m'
+
     BLACK = '\033[30m'
     BBLACK = '\033[90m'
     BLACKB = '\033[40m'
+
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
     RESET = '\033[0m'
@@ -138,10 +145,12 @@ def chop(source, types, insert_comments, comments, warn=False):
 
     source_html = source_html.splitlines()
     block_count = len(data) - 1
+    success: bool = True
     for i, block in enumerate(data):
         block['base_path'] = types[block['tag']]
         block['path'] = magic_vars(block['path'], source)
         block['content'] = extract_block(block['start'], block['end'], source_html)
+        block['source_file'] = source
 
         c = comments[block['tag']]
         block['comment_open'], block['comment_close'] = c
@@ -152,7 +161,10 @@ def chop(source, types, insert_comments, comments, warn=False):
             block['content'] = f'\n{comment}\n\n{block["content"]}'
 
         last = False if block_count != i else True
-        new_or_overwrite_file(block, warn, last)
+        if not new_or_overwrite_file(block, warn, last):
+            success = False
+
+    return success
 
 
 def extract_block(start: List, end: List, source_html: List) -> str:
@@ -208,12 +220,18 @@ def new_or_overwrite_file(block, warn=False, last=False):
     if partial_file.parent.mkdir(parents=True, exist_ok=True):
         info(Action.DIR, partial_file.parent)
 
-    if partial_file.exists():
-        with open(partial_file, 'r+') as f:
-                write_to_file(block, content, f, last, partial_file, warn, False)
-    else:
-        with open(partial_file, 'w') as f:
-            write_to_file(block, content, f, last, partial_file, False, True)
+    try:
+        if partial_file.exists():
+            with open(partial_file, 'r+') as f:
+                success: bool = write_to_file(block, content, f, last, partial_file, warn, False)
+        else:
+            with open(partial_file, 'w') as f:
+                success: bool = write_to_file(block, content, f, last, partial_file, False, True)
+    except IsADirectoryError:
+        error(Action.CHOP, block['source_file'], 'Destination is a dir.')
+        sys.exit(1)
+
+    return success
 
 
 def write_to_file(block, content, f, last, partial, warn, newfile):
@@ -221,6 +239,7 @@ def write_to_file(block, content, f, last, partial, warn, newfile):
 
     Show a diff if the file contents differ and the warn flag is set.
     """
+    success: bool = True
     try:
         current_contents = f.read()
     except io.UnsupportedOperation:
@@ -230,9 +249,10 @@ def write_to_file(block, content, f, last, partial, warn, newfile):
         if warn:
             error(Action.WRITE, partial, 'File contents differ')
             show_diff(content, current_contents, block['path'], str(partial))
+            success = False
             print()
-            if not DRYRUN:
-                sys.exit(1)
+            # if not DRYRUN:
+            #     sys.exit(1)
         else:
             if newfile:
                 info(Action.NEW, partial, last=last)
@@ -245,22 +265,23 @@ def write_to_file(block, content, f, last, partial, warn, newfile):
     else:
         info(Action.UNCHANGED, partial, last=last)
 
+    return success
+
 
 def show_diff(a, b, fname_a, fname_b):
     diff = difflib.context_diff(
         a.splitlines(), b.splitlines(), tofile=fname_a, fromfile=fname_b, n=0
     )
     print()
-    for line in diff:
+
+    for i, line in enumerate(diff):
+        if i <= 2:
+            continue
+
         line = line.rstrip()
-        color = None
-        if line.startswith('*'):
-            color = C.RED
-        elif line.startswith('-'):
-            color = C.GREEN
 
         if line.startswith('!'):
-            print(f'{color}{line}{C.RESET}')
+            print(line)
         elif line.startswith('--'):
             print(f'{C.BLACK}{C.REDB}{line}{C.RESET}')
         elif line.startswith('****'):
@@ -332,8 +353,15 @@ def main():
         'chop': ['{{# ', ' #}}'],
     }
 
+    success: bool = True
     for source in chopper_files:
-        chop(source, types, args.comments, comment_types, warn=args.warn)
+        if not chop(source, types, args.comments, comment_types, warn=args.warn):
+            success = False
+
+    if not success:
+        error(Action.CHOP, '', 'Some files were different.')
+        sys.exit(1)
+
     print()
 
 
