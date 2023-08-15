@@ -55,7 +55,7 @@ cmd="python3 $chopper
 # On first run, generate all, and if any files are different, stop,
 # since that means that someone edited a destination file and that
 # needs investigation.
-if ! $cmd --warn $watch_dir; then
+if ! $cmd --warn --dry-run $watch_dir; then
     echo "${redb}${whitef}${boldon}chopper-watch:${boldoff} files are different, exiting.${reset}"
     echo "${redf}Run this command if you want to overwrite the dest file:${reset}"
     single_line=$(echo $cmd | sed -e 's/ */ /' | tr -d '\n')
@@ -63,14 +63,10 @@ if ! $cmd --warn $watch_dir; then
     exit
 fi
 
-if [[ $1 == 'watch' ]]; then
-    inotifywait -mrq -e close_write,moved_to,create,modify $watch_dir |
-        while read -r dir _events name; do
-            if [[ $name == *chopper.html ]]; then
-                echo
-                $cmd "$dir$name"
-            fi
-        done
-else
-    echo "Add command 'watch' to watch for changes."
-fi
+inotifywait -mrq -e close_write,moved_to,create,modify $watch_dir |
+    while read -r dir _events name; do
+        if [[ $name == *chopper.html ]]; then
+            echo
+            $cmd "$dir$name"
+        fi
+    done
