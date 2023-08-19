@@ -23,7 +23,7 @@
       </ENTRIES>
     </EXTENSION>
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/chopper/chopper.py" />
-    <option name="PARAMETERS" value="--comments --script-dir=public/js --style-dir=public/css --html-dir=public/views public/chopper/" />
+    <option name="PARAMETERS" value="--comments --script-dir=public/js --style-dir=public/css --html-dir=public/views public/chopper" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />
