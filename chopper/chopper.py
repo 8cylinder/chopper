@@ -56,7 +56,10 @@ class Action(Enum):
 
 
 def info(
-    action: Action, filename: Union[str, Path], dry_run: bool = False, last: bool = False
+    action: Action,
+    filename: Union[str, Path],
+    dry_run: bool = False,
+    last: bool = False,
 ) -> None:
     dry_run = ' (DRY RUN)' if dry_run else ''
     choppa: str = f'{C.MAGENTA}{C.BOLD}CHOPPER:{C.RESET}'
@@ -223,10 +226,14 @@ def new_or_overwrite_file(block, warn=False, last=False):
     try:
         if partial_file.exists():
             with open(partial_file, 'r+') as f:
-                success: bool = write_to_file(block, content, f, last, partial_file, warn, False)
+                success: bool = write_to_file(
+                    block, content, f, last, partial_file, warn, False
+                )
         else:
             with open(partial_file, 'w') as f:
-                success: bool = write_to_file(block, content, f, last, partial_file, False, True)
+                success: bool = write_to_file(
+                    block, content, f, last, partial_file, False, True
+                )
     except IsADirectoryError:
         error(Action.CHOP, block['source_file'], 'Destination is a dir.')
         sys.exit(1)
@@ -300,25 +307,32 @@ def main():
         '''
       Chop files into their separate types, style, script and html.
 
-      Get to the choppa!
+      Get to the choppa! 
     '''
     )
 
     parser = argparse.ArgumentParser(
-        description=help_msg, formatter_class=argparse.RawDescriptionHelpFormatter
+        description=help_msg,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     parser.add_argument('-s', '--script-dir', help='Destination for the script files')
     parser.add_argument('-c', '--style-dir', help='Destination for the style files')
     parser.add_argument('-m', '--html-dir', help='Destination for the html files')
-    parser.add_argument('--comments', action='store_true', help='Add comments to generated files')
+    parser.add_argument(
+        '--comments',
+        action='store_true',
+        help='Add comments to generated files',
+    )
     parser.add_argument(
         '--warn',
         action='store_true',
         help='Warn when the file contents differs instead of overwriting it.',
     )
     parser.add_argument(
-        '--dry-run', action="store_true", help="Do not write any file to the filesystem"
+        '--dry-run',
+        action="store_true",
+        help="Do not write any file to the filesystem",
     )
     parser.add_argument(
         'source_dir',
