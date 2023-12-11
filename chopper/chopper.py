@@ -218,6 +218,13 @@ def magic_vars(path, source):
 def new_or_overwrite_file(block, warn=False, last=False):
     """Create or update the file specified in the chopper:file attribute."""
     content = f'{block["content"]}'
+    # pp(block)
+    if not block['path']:
+        info(Action.UNCHANGED, 'No destination defined', last=False)
+        # error(Action.CHOP, block['source_file'], 'Destination is not defined.')
+        # sys.exit(1)
+        return True
+
     partial_file = Path(os.path.join(block['base_path'], block['path']))
 
     if partial_file.parent.mkdir(parents=True, exist_ok=True):
@@ -307,7 +314,7 @@ def main():
         '''
       Chop files into their separate types, style, script and html.
 
-      Get to the choppa! 
+      Get to the choppa!
     '''
     )
 
