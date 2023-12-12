@@ -4,7 +4,9 @@
     <option name="cmdArguments" value="--skip-string-normalization --line-length 90" />
     <option name="enabledOnReformat" value="true" />
     <option name="enabledOnSave" value="true" />
-    <option name="sdkUUID" value="cdcf9879-638d-4299-89b0-40f565bd1b6a" />
+    <option name="executionMode" value="BINARY" />
+    <option name="pathToExecutable" value="/usr/bin/black" />
+    <option name="sdkName" value="Remote Python 3.9.18 Docker Compose (chopper)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.9" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.9.18 Docker Compose (chopper)" project-jdk-type="Python SDK" />
 </project>
