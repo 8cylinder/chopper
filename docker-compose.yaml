@@ -1,0 +1,13 @@
+# docker compose up           # to build
+# docker compose build        # to rebuild
+# docker compose run chopper  # to access
+
+
+services:
+  chopper:
+    # user: root
+    build: .
+    container_name: chopper
+    volumes:
+      - .:/home/sm/chopper
+    command: bash
