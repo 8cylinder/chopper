@@ -53,6 +53,7 @@ class Action(Enum):
     NEW = 'New'
     DIR = 'Mkdir'
     UNCHANGED = 'File unchanged'
+    DOESNOTEXIST = 'Does not exist'
 
 
 def info(
@@ -231,7 +232,11 @@ def new_or_overwrite_file(block, warn=False, last=False):
         info(Action.DIR, partial_file.parent)
 
     try:
-        if partial_file.exists():
+        if warn and not partial_file.exists():
+            info(Action.DOESNOTEXIST, partial_file, last=last)
+            success: bool = False
+
+        elif partial_file.exists():
             with open(partial_file, 'r+') as f:
                 success: bool = write_to_file(
                     block, content, f, last, partial_file, warn, False

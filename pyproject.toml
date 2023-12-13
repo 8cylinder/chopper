@@ -6,10 +6,13 @@ authors = ["sheldon <developer@8cylinder.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "3.9.18"
+python = "~3.9"
 
 [tool.poetry.scripts]
-prism = "chopper.__main__:main"
+chopper = "chopper.__main__:main"
+
+[project.scripts]
+chopper = "chopper.__main__:main"
 
 [build-system]
 requires = ["poetry-core"]
