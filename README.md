@@ -1,7 +1,10 @@
 
 # Chopper 🚁
-Get to the choppa! <br><br><br>
+*Get to the choppa!* <br><br>
 
+
+Split a single file into seperate files.  This is designed mostly for
+writing partials for server side CMSs.
 
 Write server side partials with all their parts in one file.  Js, css
 and html are extracted and written to seperate files so they can be
@@ -19,7 +22,7 @@ Given a file in `src/chopper/` called `headline.chopper.html`:
   }
 </style>
 
-<script chopper:file="theme/{NAME}.js">
+<script chopper:file="theme/headline.js">
   console.log('This is a log')
 </script>
 
@@ -41,10 +44,6 @@ will be created:
 1. `src/scss/headline.scss`
 1. `src/js/theme/headline.js`
 1. `private/templates/title.twig`
-
-If `{NAME}` is used in the `chopper:file` attribute, it will be
-replaced with the source file's base name.  In this case it would be
-`headline`.  The `.chopper.html` part of the file name is removed.
 
 A single file can be passed as the source argument and in that case
 the script won't walk the filesystem looking for chopper files.

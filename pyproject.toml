@@ -6,7 +6,7 @@ authors = ["sheldon <developer@8cylinder.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "~3.9"
+python = "^3.9"
 
 [tool.poetry.scripts]
 chopper = "chopper.__main__:main"
