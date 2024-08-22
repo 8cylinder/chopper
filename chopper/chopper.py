@@ -56,12 +56,13 @@ class Action(Enum):
     DOESNOTEXIST = 'Does not exist'
 
 
-def info(
+def print_action(
     action: Action,
     filename: Union[str, Path],
     dry_run: bool = False,
     last: bool = False,
 ) -> None:
+    """Output information about the action taken by chopper."""
     dry_run = ' (DRY RUN)' if dry_run else ''
     choppa: str = f'{C.MAGENTA}{C.BOLD}CHOPPER:{C.RESET}'
     task: str = f'{C.BGREEN}{action.value}{dry_run}{C.RESET}'
@@ -138,7 +139,7 @@ def find_chopper_files(source: Path) -> list[str]:
 
 def chop(source, types, insert_comments, comments, warn=False):
     """Chop up the source file into the blocks defined by the chopper tags."""
-    info(Action.CHOP, source)
+    print_action(Action.CHOP, source)
     with open(source, 'r') as f:
         source_html = f.read()
 
@@ -221,7 +222,7 @@ def new_or_overwrite_file(block, warn=False, last=False):
     content = f'{block["content"]}'
     # pp(block)
     if not block['path']:
-        info(Action.UNCHANGED, 'No destination defined', last=False)
+        print_action(Action.UNCHANGED, 'No destination defined', last=False)
         # error(Action.CHOP, block['source_file'], 'Destination is not defined.')
         # sys.exit(1)
         return True
@@ -229,11 +230,11 @@ def new_or_overwrite_file(block, warn=False, last=False):
     partial_file = Path(os.path.join(block['base_path'], block['path']))
 
     if partial_file.parent.mkdir(parents=True, exist_ok=True):
-        info(Action.DIR, partial_file.parent)
+        print_action(Action.DIR, partial_file.parent)
 
     try:
         if warn and not partial_file.exists():
-            info(Action.DOESNOTEXIST, partial_file, last=last)
+            print_action(Action.DOESNOTEXIST, partial_file, last=last)
             success: bool = False
 
         elif partial_file.exists():
@@ -274,15 +275,15 @@ def write_to_file(block, content, f, last, partial, warn, newfile):
             #     sys.exit(1)
         else:
             if newfile:
-                info(Action.NEW, partial, last=last)
+                print_action(Action.NEW, partial, last=last)
             else:
-                info(Action.WRITE, partial, last=last)
+                print_action(Action.WRITE, partial, last=last)
             if not DRYRUN:
                 f.seek(0)
                 f.write(content)
                 f.truncate()
     else:
-        info(Action.UNCHANGED, partial, last=last)
+        print_action(Action.UNCHANGED, partial, last=last)
 
     return success
 
@@ -315,13 +316,11 @@ def show_diff(a, b, fname_a, fname_b):
 
 
 def main():
-    help_msg = dedent(
-        '''
-      Chop files into their separate types, style, script and html.
+    help_msg = dedent('''
+        Chop files into their separate types, style, script and html.
 
-      Get to the choppa!
-    '''
-    )
+        Get to the choppa!
+    ''')
 
     parser = argparse.ArgumentParser(
         description=help_msg,
