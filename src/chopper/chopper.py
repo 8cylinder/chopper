@@ -3,7 +3,6 @@ import os
 import sys
 import errno
 import io
-import argparse
 from textwrap import dedent
 from pprint import pprint as pp  # noqa: F401
 from html.parser import HTMLParser
@@ -11,6 +10,7 @@ from pathlib import Path
 from enum import Enum
 import difflib
 from typing import Any
+import click
 
 from typing_extensions import TextIO
 
@@ -335,60 +335,59 @@ def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
             print(line)
 
 
-def main() -> None:
-    help_msg = dedent(
-        """Chop files into their separate types, style, script and html.
+# fmt: off
+CONTEXT_SETTINGS = {
+    "help_option_names": ["-h", "--help"],
+    "token_normalize_func": lambda x: x.lower(),
+}
+@click.command(context_settings=CONTEXT_SETTINGS)
+@click.argument("source_dir", type=click.Path(True, path_type=Path, file_okay=False))
+@click.option("-s", "--script-dir", type=click.Path(exists=True, file_okay=False),
+    help="Destination for the script files",
+)
+@click.option("-c", "--style-dir", type=click.Path(exists=True, file_okay=False),
+    help="Destination for the style files",
+)
+@click.option("-m", "--html-dir", type=click.Path(exists=True, file_okay=False),
+    help="Destination for the html files",
+)
+@click.option("--comments", is_flag=True,
+    help="Add comments to generated files",
+)
+@click.option("--warn", is_flag=True,
+    help="Warn when the file contents differs instead of overwriting it.",
+)
+@click.option("--dry-run",is_flag=True,
+    help="Do not write any file to the filesystem",
+)
+# fmt: on
+def main(
+    source_dir: str,
+    script_dir: str,
+    style_dir: str,
+    html_dir: str,
+    comments: bool,
+    warn: bool,
+    dry_run: bool,
+) -> None:
+    """Chop files into their separate types, style, script and html.
 
-        Get to the choppa!"""
-    )
-
-    parser = argparse.ArgumentParser(
-        description=help_msg,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-
-    parser.add_argument("-s", "--script-dir", help="Destination for the script files")
-    parser.add_argument("-c", "--style-dir", help="Destination for the style files")
-    parser.add_argument("-m", "--html-dir", help="Destination for the html files")
-    parser.add_argument(
-        "--comments",
-        action="store_true",
-        help="Add comments to generated files",
-    )
-    parser.add_argument(
-        "--warn",
-        action="store_true",
-        help="Warn when the file contents differs instead of overwriting it.",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Do not write any file to the filesystem",
-    )
-    parser.add_argument(
-        "source_dir",
-        metavar="SOURCE-DIR",
-        help="The directory that contains the chopper files.",
-    )
-
-    args = parser.parse_args()
-
+    Get to the choppa!"""
     global DRYRUN
-    DRYRUN = args.dry_run
-
-    if os.path.exists(args.source_dir):
-        if os.path.isdir(args.source_dir):
-            chopper_files = find_chopper_files(args.source_dir)
+    DRYRUN = dry_run
+    if os.path.exists(source_dir):
+        if os.path.isdir(source_dir):
+            chopper_files = find_chopper_files(Path(source_dir))
         else:
-            chopper_files = [args.source_dir]
+            chopper_files = [source_dir]
     else:
-        error(Action.CHOP, args.source_dir, "No such file or directory:")
+        error(Action.CHOP, source_dir, "No such file or directory:")
         sys.exit(1)
 
     types = {
-        "script": args.script_dir or "",
-        "style": args.style_dir or "",
-        "chop": args.html_dir or "",
+        "script": script_dir or "",
+        "style": style_dir or "",
+        "chop": html_dir or "",
     }
 
     comment_types = {
@@ -400,7 +399,7 @@ def main() -> None:
 
     success: bool = True
     for source in chopper_files:
-        if not chop(source, types, args.comments, comment_types, warn=args.warn):
+        if not chop(source, types, comments, comment_types, warn=warn):
             success = False
 
     if not success:
