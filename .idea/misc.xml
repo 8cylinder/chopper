@@ -8,5 +8,5 @@
     <option name="pathToExecutable" value="/usr/bin/black" />
     <option name="sdkName" value="Remote Python 3.9.18 Docker Compose (chopper)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.12 (chopper)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.11 (chopper)" project-jdk-type="Python SDK" />
 </project>
