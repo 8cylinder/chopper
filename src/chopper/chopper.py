@@ -76,12 +76,18 @@ def print_action(
     print(f"{choppa} {tree}{task} {filename}  {date}")
 
 
-def error(action: Action, filename: str, msg: str, dry_run: bool = False) -> None:
+def show_error(action: Action, filename: str, msg: str, dry_run: bool = False) -> None:
     dry = " (DRY RUN)" if dry_run else ""
     choppa: str = f"{C.REDB}{C.BOLD}CHOPPER:{C.RESET}"
     action_pretty: str = f"{C.REDB}{C.BOLD}{action.value}{dry}{C.RESET}"
     filename = f"{C.BBLUE}{filename}{C.RESET}"
     print(choppa, action_pretty, msg, filename, file=sys.stderr)
+
+
+def show_warning(action: Action, msg: str) -> None:
+    choppa = click.style("CHOPPER:", fg="yellow", bold=True)
+    action_pretty = click.style(action.value, fg="yellow", bold=True)
+    print(choppa, action_pretty, msg, file=sys.stderr)
 
 
 class ChopperParser(HTMLParser):
@@ -161,7 +167,8 @@ def chop(
     success: bool = True
     for i, block in enumerate(data):
         block["base_path"] = types[block["tag"]]
-        block["path"] = magic_vars(block["path"], source)
+        if "{" in block["path"]:
+            show_warning(Action.CHOP, "Magic vars no longer work.")
         block["content"] = extract_block(
             block["start"], block["end"], source_html_split
         )
@@ -207,26 +214,6 @@ def extract_block(start: list[Any], end: list[Any], source_html: list[Any]) -> s
     return extracted_rendered
 
 
-def magic_vars(path: str, source: str) -> str:
-    """Replace magic variables in the path with the source file name.
-
-    If the source file is named `hero.chopper.html` and the chopper:file
-    attribute is `assets/{NAME}.css`, return the string `assets/hero.css`.
-    """
-    source_p = Path(source)
-    source_name = source_p.name.replace(CHOPPER_NAME, "")
-    fields = {
-        "NAME": source_name,
-        "THIS-NAME": source_p.name,
-    }
-    try:
-        new_name = path.format(**fields)
-    except KeyError:
-        error(Action.CHOP, str(source_p), "Invalid magic variable in attribute:")
-        sys.exit(1)
-    return new_name
-
-
 def new_or_overwrite_file(
     block: dict[str, Any], warn: bool = False, last: bool = False
 ) -> bool:
@@ -260,7 +247,7 @@ def new_or_overwrite_file(
                     block, content, f, last, partial_file, False, True
                 )
     except IsADirectoryError:
-        error(Action.CHOP, block["source_file"], "Destination is a dir.")
+        show_error(Action.CHOP, block["source_file"], "Destination is a dir.")
         sys.exit(1)
 
     return success
@@ -287,7 +274,7 @@ def write_to_file(
 
     if current_contents != content:
         if warn:
-            error(Action.WRITE, str(partial), "File contents differ")
+            show_error(Action.WRITE, str(partial), "File contents differ")
             show_diff(content, current_contents, block["path"], str(partial))
             success = False
             print()
@@ -381,7 +368,7 @@ def main(
         else:
             chopper_files = [source_dir]
     else:
-        error(Action.CHOP, source_dir, "No such file or directory:")
+        show_error(Action.CHOP, source_dir, "No such file or directory:")
         sys.exit(1)
 
     types = {
@@ -403,7 +390,5 @@ def main(
             success = False
 
     if not success:
-        error(Action.CHOP, "", "Some files were different.")
+        show_error(Action.CHOP, "", "Some files were different.")
         sys.exit(1)
-
-    print()

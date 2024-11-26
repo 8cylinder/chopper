@@ -77,4 +77,7 @@ will run the chopper watch script in parallel with npm's watch.
 
 ### Development
 
+``` bash
 uv run chopper -h
+uv run chopper public/chopper/ -s public/js/ -c public/css/ -m public/views/ --dry-run
+```
