@@ -74,3 +74,7 @@ will run the chopper watch script in parallel with npm's watch.
 
 `ddev npm run chopper`
 
+
+### Development
+
+uv run chopper -h

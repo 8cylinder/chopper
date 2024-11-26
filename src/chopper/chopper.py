@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from datetime import datetime
 import os
 import sys
@@ -13,6 +11,8 @@ from pathlib import Path
 from enum import Enum
 import difflib
 from typing import List, Any, Dict, Union
+
+from typing_extensions import TextIO
 
 NOW = datetime.now().isoformat(timespec='seconds', sep=',')
 DRYRUN = False
@@ -63,48 +63,49 @@ def print_action(
     last: bool = False,
 ) -> None:
     """Output information about the action taken by chopper."""
-    dry_run = ' (DRY RUN)' if dry_run else ''
+    dry = ' (DRY RUN)' if dry_run else ''
     choppa: str = f'{C.MAGENTA}{C.BOLD}CHOPPER:{C.RESET}'
-    task: str = f'{C.BGREEN}{action.value}{dry_run}{C.RESET}'
-    filename: str = f'{C.BBLUE}{filename}{C.RESET}'
+    task: str = f'{C.BGREEN}{action.value}{dry}{C.RESET}'
+    filename = f'{C.BBLUE}{filename}{C.RESET}'
     tree: str = ''
-    if action != action.CHOP:
-        tree = '└─ ' if last else '├─ '
     date: str = ''
-    if action == action.CHOP:
+    if action == Action.CHOP:
         date = f'{C.BBLACK}{NOW}{C.RESET}'
+    else:
+        tree = '└─ ' if last else '├─ '
     print(f'{choppa} {tree}{task} {filename}  {date}')
 
 
 def error(action: Action, filename: str, msg: str, dry_run: bool = False) -> None:
-    dry_run = ' (DRY RUN)' if dry_run else ''
+    dry = ' (DRY RUN)' if dry_run else ''
     choppa: str = f'{C.REDB}{C.BOLD}CHOPPER:{C.RESET}'
-    action: str = f'{C.REDB}{C.BOLD}{action.value}{dry_run}{C.RESET}'
-    filename: str = f'{C.BBLUE}{filename}{C.RESET}'
-    print(choppa, action, msg, filename, file=sys.stderr)
+    action_pretty: str = f'{C.REDB}{C.BOLD}{action.value}{dry}{C.RESET}'
+    filename = f'{C.BBLUE}{filename}{C.RESET}'
+    print(choppa, action_pretty, msg, filename, file=sys.stderr)
 
 
 class ChopperParser(HTMLParser):
     tags: list[str] = ['style', 'script', 'chop']
     tree: list[Any] = []
-    path: str = None
+    path: str | None = ''
     parsed_data: list[dict[str, Any]] = []
-    start: tuple = None
+    # start: tuple[int, int] = (0, 0)
+    start: list[int] = [0, 0]
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag: str, attrs: List[tuple[str, str | None]]) -> None:
         if tag in self.tags:
             self.tree.append(tag)
             for attr in attrs:
                 if attr[0] == 'chopper:file':
                     self.path = attr[1]
                     pos = list(self.getpos())
-                    pos[0] = pos[0] - 1
+                    pos[0] -= 1
                     extra = [len(i) for i in self.get_starttag_text().split("\n")]
                     for line in extra:
-                        pos = (pos[0] + 1, line)
+                        pos = [pos[0] + 1, line]
                     self.start = pos
 
-    def handle_endtag(self, tag):
+    def handle_endtag(self, tag: str) -> None:
         if tag in self.tags:
             self.tree.pop()
             if not self.tree:
@@ -137,7 +138,13 @@ def find_chopper_files(source: Path) -> list[str]:
     return chopper_files
 
 
-def chop(source, types, insert_comments, comments, warn=False):
+def chop(
+    source: str,
+    types: dict[str, str],
+    insert_comments: bool,
+    comments: dict[str, list[str]],
+    warn: bool = False,
+) -> bool:
     """Chop up the source file into the blocks defined by the chopper tags."""
     print_action(Action.CHOP, source)
     with open(source, 'r') as f:
@@ -148,13 +155,13 @@ def chop(source, types, insert_comments, comments, warn=False):
     parser.feed(source_html)
     data = parser.parsed_data
 
-    source_html = source_html.splitlines()
+    source_html_split = source_html.splitlines()
     block_count = len(data) - 1
     success: bool = True
     for i, block in enumerate(data):
         block['base_path'] = types[block['tag']]
         block['path'] = magic_vars(block['path'], source)
-        block['content'] = extract_block(block['start'], block['end'], source_html)
+        block['content'] = extract_block(block['start'], block['end'], source_html_split)
         block['source_file'] = source
 
         c = comments[block['tag']]
@@ -172,7 +179,7 @@ def chop(source, types, insert_comments, comments, warn=False):
     return success
 
 
-def extract_block(start: List, end: List, source_html: List) -> str:
+def extract_block(start: list[Any], end: list[Any], source_html: list[Any]) -> str:
     """Extract the block of code from the source.
 
     Extract from the end of the start tag to the start of the end tag."""
@@ -182,44 +189,46 @@ def extract_block(start: List, end: List, source_html: List) -> str:
     end_line: int = end[0]
     end_char: int = end[1]
 
-    extracted: array = source_html[start_line:end_line]
+    extracted: list[Any] = source_html[start_line:end_line]
     if len(extracted) == 1:
         extracted[0] = extracted[0][start_char:end_char]
     else:
         extracted[0] = extracted[0][start_char:]
         extracted[-1] = extracted[-1][:end_char]
 
-    extracted = '\n'.join(extracted)
-    extracted = dedent(extracted)
-    extracted = extracted.strip()
-    extracted = f'{extracted}\n'
+    extracted_rendered = '\n'.join(extracted)
+    extracted_rendered = dedent(extracted_rendered)
+    extracted_rendered = extracted_rendered.strip()
+    extracted_rendered = f'{extracted_rendered}\n'
 
-    return extracted
+    return extracted_rendered
 
 
-def magic_vars(path, source):
+def magic_vars(path: str, source: str) -> str:
     """Replace magic variables in the path with the source file name.
 
     If the source file is named `hero.chopper.html` and the chopper:file
     attribute is `assets/{NAME}.css`, return the string `assets/hero.css`.
     """
-    source = Path(source)
-    source_name = source.name.replace(CHOPPER_NAME, '')
+    source_p = Path(source)
+    source_name = source_p.name.replace(CHOPPER_NAME, '')
     fields = {
         'NAME': source_name,
-        'THIS-NAME': source,
+        'THIS-NAME': source_p.name,
     }
     try:
         new_name = path.format(**fields)
     except KeyError:
-        error(Action.CHOP, str(source), 'Invalid magic variable in attribute:')
+        error(Action.CHOP, str(source_p), 'Invalid magic variable in attribute:')
         sys.exit(1)
     return new_name
 
 
-def new_or_overwrite_file(block, warn=False, last=False):
+def new_or_overwrite_file(
+    block: dict[str, Any], warn: bool = False, last: bool = False
+) -> bool:
     """Create or update the file specified in the chopper:file attribute."""
-    content = f'{block["content"]}'
+    content = block["content"]
     # pp(block)
     if not block['path']:
         print_action(Action.UNCHANGED, 'No destination defined', last=False)
@@ -229,8 +238,8 @@ def new_or_overwrite_file(block, warn=False, last=False):
 
     partial_file = Path(os.path.join(block['base_path'], block['path']))
 
-    if partial_file.parent.mkdir(parents=True, exist_ok=True):
-        print_action(Action.DIR, partial_file.parent)
+    partial_file.parent.mkdir(parents=True, exist_ok=True)
+    print_action(Action.DIR, partial_file.parent)
 
     try:
         if warn and not partial_file.exists():
@@ -239,12 +248,12 @@ def new_or_overwrite_file(block, warn=False, last=False):
 
         elif partial_file.exists():
             with open(partial_file, 'r+') as f:
-                success: bool = write_to_file(
+                success = write_to_file(
                     block, content, f, last, partial_file, warn, False
                 )
         else:
             with open(partial_file, 'w') as f:
-                success: bool = write_to_file(
+                success = write_to_file(
                     block, content, f, last, partial_file, False, True
                 )
     except IsADirectoryError:
@@ -254,7 +263,9 @@ def new_or_overwrite_file(block, warn=False, last=False):
     return success
 
 
-def write_to_file(block, content, f, last, partial, warn, newfile):
+def write_to_file(
+    block: dict[str,Any], content: str, f:TextIO, last: bool, partial: Path, warn: bool, newfile: bool
+) -> bool:
     """Write the content to the file if it differs from the current contents.
 
     Show a diff if the file contents differ and the warn flag is set.
@@ -267,7 +278,7 @@ def write_to_file(block, content, f, last, partial, warn, newfile):
 
     if current_contents != content:
         if warn:
-            error(Action.WRITE, partial, 'File contents differ')
+            error(Action.WRITE, str(partial), 'File contents differ')
             show_diff(content, current_contents, block['path'], str(partial))
             success = False
             print()
@@ -288,7 +299,7 @@ def write_to_file(block, content, f, last, partial, warn, newfile):
     return success
 
 
-def show_diff(a, b, fname_a, fname_b):
+def show_diff(a, b, fname_a:str, fname_b:str)->None:
     diff = difflib.context_diff(
         a.splitlines(), b.splitlines(), tofile=fname_a, fromfile=fname_b, n=0
     )
@@ -315,12 +326,14 @@ def show_diff(a, b, fname_a, fname_b):
             print(line)
 
 
-def main():
-    help_msg = dedent('''
+def main() -> None:
+    help_msg = dedent(
+        '''
         Chop files into their separate types, style, script and html.
 
         Get to the choppa!
-    ''')
+    '''
+    )
 
     parser = argparse.ArgumentParser(
         description=help_msg,
@@ -390,5 +403,5 @@ def main():
     print()
 
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

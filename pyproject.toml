@@ -1,19 +1,22 @@
-[tool.poetry]
+[project]
 name = "chopper"
-version = "0.1.0"
-description = ""
-authors = ["sheldon <developer@8cylinder.com>"]
+version = "0.2.0"
+description = "Chop up files and put the parts in various places."
 readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "^3.9"
-
-[tool.poetry.scripts]
-chopper = "chopper.__main__:main"
+authors = [
+    { name = "Sheldon McGrandle", email = "developer@8cylinder.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.1.7",
+    "mypy>=1.13.0",
+    "ruff>=0.8.0",
+    "watchdog>=6.0.0",
+]
 
 [project.scripts]
-chopper = "chopper.__main__:main"
+chopper = "chopper:main"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
