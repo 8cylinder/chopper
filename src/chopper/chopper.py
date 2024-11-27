@@ -20,41 +20,13 @@ DRYRUN = False
 CHOPPER_NAME = ".chopper.html"
 
 
-class C:
-    MAGENTA = "\033[95m"
-
-    RED = "\033[31m"
-    BRED = "\033[91m"
-    REDB = "\033[41m"
-
-    BLUE = "\033[34m"
-    BBLUE = "\033[94m"
-    BLUEB = "\033[44m"
-
-    BCYAN = "\033[96m"
-    CYAN = "\033[36m"
-    CYANB = "\033[46m"
-
-    GREEN = "\033[32m"
-    BGREEN = "\033[92m"
-    GREENB = "\033[42m"
-
-    BLACK = "\033[30m"
-    BBLACK = "\033[90m"
-    BLACKB = "\033[40m"
-
-    BOLD = "\033[1m"
-    UNDERLINE = "\033[4m"
-    RESET = "\033[0m"
-
-
 class Action(Enum):
     CHOP = "Chop"
     WRITE = "Write"
     NEW = "New"
     DIR = "Mkdir"
     UNCHANGED = "File unchanged"
-    DOESNOTEXIST = "Does not exist"
+    DOES_NOT_EXIST = "Does not exist"
 
 
 class Comment(NamedTuple):
@@ -70,31 +42,30 @@ def print_action(
 ) -> None:
     """Output information about the action taken by chopper."""
     dry = " (DRY RUN)" if dry_run else ""
-    choppa: str = f"{C.MAGENTA}{C.BOLD}CHOPPER:{C.RESET}"
-    task: str = f"{C.BGREEN}{action.value}{dry}{C.RESET}"
-    filename = f"{C.BBLUE}{filename}{C.RESET}"
+    choppa = click.style("CHOPPER:", fg="magenta", bold=True)
+    task = click.style(action.value, fg="bright_green")
+    filename = click.style(str(filename), fg="bright_blue")
     tree: str = ""
     date: str = ""
     if action == Action.CHOP:
-        date = f"{C.BBLACK}{NOW}{C.RESET}"
+        date = click.style(NOW, fg="bright_black")
     else:
         tree = "└─ " if last else "├─ "
-    print(f"{choppa} {tree}{task} {filename}  {date}")
+    click.echo(f"{choppa} {tree}{task} {filename}  {date}")
 
 
 def show_error(action: Action, filename: str, msg: str, dry_run: bool = False) -> None:
     dry = " (DRY RUN)" if dry_run else ""
-    choppa: str = f"{C.REDB}{C.BOLD}CHOPPER:{C.RESET}"
-    action_pretty: str = f"{C.REDB}{C.BOLD}{action.value}{dry}{C.RESET}"
-    filename = f"{C.BBLUE}{filename}{C.RESET}"
-    print(choppa, action_pretty, msg, filename, file=sys.stderr)
+    choppa = click.style("CHOPPER:", bg="red", bold=True)
+    action_pretty = click.style(action.value, bg="red", bold=True)
+    filename = click.style(filename, fg="bright_blue")
+    click.echo(f"{choppa} {action_pretty} {msg} {filename}", err=True)
 
 
 def show_warning(msg: str) -> None:
     choppa = click.style("CHOPPER:", fg="yellow", bold=True)
-    # action_pretty = click.style(action.value, fg="yellow", bold=True)
     msg_pretty = click.style(msg, fg="yellow")
-    print(choppa, "┆", msg_pretty, file=sys.stderr)
+    click.echo(f"{choppa} ┆ {msg_pretty}", err=True)
 
 
 @dataclass
@@ -172,14 +143,11 @@ def find_chopper_files(source: Path) -> list[str]:
 def chop(
     source: str,
     types: dict[str, str],
-    root: str,
     insert_comments: bool,
     comments: dict[str, Comment],
     warn: bool = False,
 ) -> bool:
     """Chop up the source file into the blocks defined by the chopper tags."""
-    if not root:
-        root = ""
     print_action(Action.CHOP, source)
     with open(source, "r") as f:
         source_html = f.read()
@@ -261,7 +229,7 @@ def new_or_overwrite_file(
     success: bool = False
     try:
         if warn and not partial_file.exists():
-            print_action(Action.DOESNOTEXIST, partial_file, last=last)
+            print_action(Action.DOES_NOT_EXIST, partial_file, last=last)
             success = False
 
         elif partial_file.exists():
@@ -341,16 +309,16 @@ def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
         if line.startswith("!"):
             print(line)
         elif line.startswith("--"):
-            print(f"{C.BLACK}{C.REDB}{line}{C.RESET}")
+            click.secho(line, fg="bright_white", bg="red")
         elif line.startswith("****"):
             hl = "=" * 80
             print()
-            print(f"{C.BCYAN}{hl}{C.RESET}")
+            click.secho(line, fg="bright_white", bg="cyan")
             print()
         elif line.startswith("*"):
-            print(f"{C.BLACK}{C.GREENB}{line}{C.RESET}")
+            click.secho(line, fg="bright_white", bg="green")
         else:
-            print(line)
+            click.echo(line)
 
 
 # fmt: off
@@ -359,7 +327,7 @@ CONTEXT_SETTINGS = {
     "token_normalize_func": lambda x: x.lower(),
 }
 @click.command(context_settings=CONTEXT_SETTINGS)
-@click.argument("source_dir", type=click.Path(True, path_type=Path, file_okay=False))
+@click.argument("source", type=click.Path(True, path_type=Path, file_okay=True, dir_okay=True))
 
 @click.option("--script-dir", "-s", type=click.Path(exists=True, file_okay=False),
     help="Destination for the script files.",
@@ -370,25 +338,21 @@ CONTEXT_SETTINGS = {
 @click.option("--html-dir", "-m", type=click.Path(exists=True, file_okay=False),
     help="Destination for the html files.",
 )
-@click.option('--root', '-r', type=click.Path(exists=True, file_okay=False),
-    help='Root directory for the source files.'
-)
 @click.option("--comments", is_flag=True,
     help="Add comments to generated files.",
 )
 @click.option("--warn", is_flag=True,
     help="Warn when the file contents differs instead of overwriting it.",
 )
-@click.option("--dry-run",is_flag=True,
+@click.option("--dry-run", is_flag=True,
     help="Do not write any file to the filesystem.",
 )
 # fmt: on
 def main(
-    source_dir: str,
+    source: str,
     script_dir: str,
     style_dir: str,
     html_dir: str,
-    root: str,
     comments: bool,
     warn: bool,
     dry_run: bool,
@@ -398,13 +362,13 @@ def main(
     Get to the choppa!"""
     global DRYRUN
     DRYRUN = dry_run
-    if os.path.exists(source_dir):
-        if os.path.isdir(source_dir):
-            chopper_files = find_chopper_files(Path(source_dir))
+    if os.path.exists(source):
+        if os.path.isdir(source):
+            chopper_files = find_chopper_files(Path(source))
         else:
-            chopper_files = [source_dir]
+            chopper_files = [source]
     else:
-        show_error(Action.CHOP, source_dir, "No such file or directory:")
+        show_error(Action.CHOP, source, "No such file or directory:")
         sys.exit(1)
 
     types = {
@@ -422,7 +386,7 @@ def main(
 
     success: bool = True
     for source in chopper_files:
-        if not chop(source, types, root, comments, comment_types, warn=warn):
+        if not chop(source, types, comments, comment_types, warn=warn):
             success = False
 
     if not success:
