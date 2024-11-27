@@ -59,7 +59,7 @@ def show_error(action: Action, filename: str, msg: str, dry_run: bool = False) -
     choppa = click.style("CHOPPER:", bg="red", bold=True)
     action_pretty = click.style(action.value, bg="red", bold=True)
     filename = click.style(filename, fg="bright_blue")
-    click.echo(f"{choppa} {action_pretty} {msg} {filename}", err=True)
+    click.echo(f"{choppa} ├─ {action_pretty} {msg} {filename}", err=True)
 
 
 def show_warning(msg: str) -> None:
@@ -276,7 +276,7 @@ def write_to_file(
             show_error(Action.WRITE, str(partial), "File contents differ")
             show_diff(content, current_contents, block.path, str(partial))
             success = False
-            print()
+            # print()
             # if not DRYRUN:
             #     sys.exit(1)
         else:
@@ -295,30 +295,29 @@ def write_to_file(
 
 
 def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
-    diff = difflib.context_diff(
-        a.splitlines(), b.splitlines(), tofile=fname_a, fromfile=fname_b, n=0
+    diff = difflib.unified_diff(
+        a.splitlines(), b.splitlines(), tofile=fname_a, fromfile=fname_b, n=3
     )
-    print()
+    prefix = "         ┆ "
+    # prefix = "  "
 
+    click.echo(prefix)
     for i, line in enumerate(diff):
-        if i <= 2:
-            continue
-
-        line = line.rstrip()
-
-        if line.startswith("!"):
-            print(line)
-        elif line.startswith("--"):
-            click.secho(line, fg="bright_white", bg="red")
-        elif line.startswith("****"):
-            hl = "=" * 80
-            print()
-            click.secho(line, fg="bright_white", bg="cyan")
-            print()
-        elif line.startswith("*"):
-            click.secho(line, fg="bright_white", bg="green")
+        if line.startswith("+++"):
+            click.echo(prefix + click.style(line, fg="bright_green"), nl=False)
+        elif line.startswith("---"):
+            click.echo(prefix + click.style(line, fg="bright_red"), nl=False)
+        elif line.startswith("@@"):
+            click.echo(
+                prefix + click.style(line, fg="bright_white", bold=True), nl=False
+            )
+        elif line.startswith("+"):
+            click.echo(prefix + click.style(line, fg="bright_green"), nl=True)
+        elif line.startswith("-"):
+            click.echo(prefix + click.style(line, fg="bright_red"), nl=True)
         else:
-            click.echo(line)
+            click.echo(prefix + click.style(line, fg="bright_black"))
+    click.echo(prefix)
 
 
 # fmt: off
@@ -390,5 +389,5 @@ def main(
             success = False
 
     if not success:
-        show_error(Action.CHOP, "", "Some files were different.")
+        # show_error(Action.CHOP, "", "Some files were different.")
         sys.exit(1)
