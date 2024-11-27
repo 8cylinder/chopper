@@ -90,11 +90,11 @@ def show_error(action: Action, filename: str, msg: str, dry_run: bool = False) -
     print(choppa, action_pretty, msg, filename, file=sys.stderr)
 
 
-def show_warning(action: Action, msg: str) -> None:
+def show_warning(msg: str) -> None:
     choppa = click.style("CHOPPER:", fg="yellow", bold=True)
-    action_pretty = click.style(action.value, fg="yellow", bold=True)
+    # action_pretty = click.style(action.value, fg="yellow", bold=True)
     msg_pretty = click.style(msg, fg="yellow")
-    print(choppa, "┆ ", msg_pretty, file=sys.stderr)
+    print(choppa, "┆", msg_pretty, file=sys.stderr)
 
 
 @dataclass
@@ -172,11 +172,14 @@ def find_chopper_files(source: Path) -> list[str]:
 def chop(
     source: str,
     types: dict[str, str],
+    root: str,
     insert_comments: bool,
     comments: dict[str, Comment],
     warn: bool = False,
 ) -> bool:
     """Chop up the source file into the blocks defined by the chopper tags."""
+    if not root:
+        root = ""
     print_action(Action.CHOP, source)
     with open(source, "r") as f:
         source_html = f.read()
@@ -192,8 +195,9 @@ def chop(
 
     for i, block in enumerate(data):
         block.base_path = types[block.tag]
+        # block.base_path = root
         if "{" in block.path:
-            show_warning(Action.CHOP, f'Magic vars no longer work: "{block.path}".')
+            show_warning(f'Magic vars no longer work: "{block.path}".')
         block.content = extract_block(block.start, block.end, source_html_split)
         block.source_file = source
 
@@ -247,15 +251,18 @@ def new_or_overwrite_file(
         return True
 
     partial_file = Path(os.path.join(block.base_path, block.path))
+    # print(f"Partial file: {partial_file}")
 
     if not partial_file.parent.exists():
-        partial_file.parent.mkdir(parents=True, exist_ok=True)
+        if not DRYRUN:
+            partial_file.parent.mkdir(parents=True, exist_ok=True)
         print_action(Action.DIR, partial_file.parent)
 
+    success: bool = False
     try:
         if warn and not partial_file.exists():
             print_action(Action.DOESNOTEXIST, partial_file, last=last)
-            success: bool = False
+            success = False
 
         elif partial_file.exists():
             with open(partial_file, "r+") as f:
@@ -270,6 +277,9 @@ def new_or_overwrite_file(
     except IsADirectoryError:
         show_error(Action.CHOP, block.source_file, "Destination is a dir.")
         sys.exit(1)
+    except FileNotFoundError:
+        # show_error(Action.CHOP, block.source_file, "Destination does not exist.")
+        show_warning(f"Destination does not exist: {block.source_file}.")
 
     return success
 
@@ -350,23 +360,27 @@ CONTEXT_SETTINGS = {
 }
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.argument("source_dir", type=click.Path(True, path_type=Path, file_okay=False))
-@click.option("-s", "--script-dir", type=click.Path(exists=True, file_okay=False),
-    help="Destination for the script files",
+
+@click.option("--script-dir", "-s", type=click.Path(exists=True, file_okay=False),
+    help="Destination for the script files.",
 )
-@click.option("-c", "--style-dir", type=click.Path(exists=True, file_okay=False),
-    help="Destination for the style files",
+@click.option("--style-dir", "-c", type=click.Path(exists=True, file_okay=False),
+    help="Destination for the style files.",
 )
-@click.option("-m", "--html-dir", type=click.Path(exists=True, file_okay=False),
-    help="Destination for the html files",
+@click.option("--html-dir", "-m", type=click.Path(exists=True, file_okay=False),
+    help="Destination for the html files.",
+)
+@click.option('--root', '-r', type=click.Path(exists=True, file_okay=False),
+    help='Root directory for the source files.'
 )
 @click.option("--comments", is_flag=True,
-    help="Add comments to generated files",
+    help="Add comments to generated files.",
 )
 @click.option("--warn", is_flag=True,
     help="Warn when the file contents differs instead of overwriting it.",
 )
 @click.option("--dry-run",is_flag=True,
-    help="Do not write any file to the filesystem",
+    help="Do not write any file to the filesystem.",
 )
 # fmt: on
 def main(
@@ -374,6 +388,7 @@ def main(
     script_dir: str,
     style_dir: str,
     html_dir: str,
+    root: str,
     comments: bool,
     warn: bool,
     dry_run: bool,
@@ -407,7 +422,7 @@ def main(
 
     success: bool = True
     for source in chopper_files:
-        if not chop(source, types, comments, comment_types, warn=warn):
+        if not chop(source, types, root, comments, comment_types, warn=warn):
             success = False
 
     if not success:
