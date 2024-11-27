@@ -1,17 +1,19 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="chopper warn" type="PythonConfigurationType" factoryName="Python">
     <module name="chopper" />
+    <option name="ENV_FILES" value="" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
     <envs>
       <env name="PYTHONUNBUFFERED" value="1" />
     </envs>
     <option name="SDK_HOME" value="$PROJECT_DIR$/.venv/bin/python" />
-    <option name="SDK_NAME" value="Poetry (chopper)" />
+    <option name="SDK_NAME" value="Python 3.11 (chopper)" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
     <option name="IS_MODULE_SDK" value="false" />
     <option name="ADD_CONTENT_ROOTS" value="true" />
     <option name="ADD_SOURCE_ROOTS" value="true" />
+    <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <EXTENSION ID="net.ashald.envfile">
       <option name="IS_ENABLED" value="false" />
       <option name="IS_SUBST" value="false" />
@@ -22,7 +24,7 @@
         <ENTRY IS_ENABLED="true" PARSER="runconfig" IS_EXECUTABLE="false" />
       </ENTRIES>
     </EXTENSION>
-    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/chopper/chopper.py" />
+    <option name="SCRIPT_NAME" value="$ProjectFileDir$/.venv/bin/chopper" />
     <option name="PARAMETERS" value="--comments --script-dir=public/js --style-dir=public/css --html-dir=public/views --warn --dry-run public/chopper/" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
