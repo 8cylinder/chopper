@@ -79,5 +79,10 @@ will run the chopper watch script in parallel with npm's watch.
 
 ``` bash
 uv run chopper -h
+
 uv run chopper public/chopper/ -s public/js/ -c public/css/ -m public/views/ --dry-run
+
+# use pudb for breakpoint()
+export PYTHONBREAKPOINT="pudb.set_trace"; uv run chopper public/chopper/ -s public/js/ -c public/css/ -m public/views/
 ```
+

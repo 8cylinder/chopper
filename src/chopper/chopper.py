@@ -9,10 +9,11 @@ from html.parser import HTMLParser
 from pathlib import Path
 from enum import Enum
 import difflib
-from typing import Any
+from typing import Any, NamedTuple
 import click
-
+from dataclasses import dataclass
 from typing_extensions import TextIO
+
 
 NOW = datetime.now().isoformat(timespec="seconds", sep=",")
 DRYRUN = False
@@ -56,6 +57,11 @@ class Action(Enum):
     DOESNOTEXIST = "Does not exist"
 
 
+class Comment(NamedTuple):
+    open: str
+    close: str
+
+
 def print_action(
     action: Action,
     filename: str | Path,
@@ -90,12 +96,24 @@ def show_warning(action: Action, msg: str) -> None:
     print(choppa, action_pretty, msg, file=sys.stderr)
 
 
+@dataclass
+class ParsedData:
+    path: str
+    base_path: str
+    source_file: str
+    tag: str
+    start: tuple[int, ...]
+    end: tuple[int, int]
+    content: str
+    comment_open: str
+    comment_close: str
+
+
 class ChopperParser(HTMLParser):
     tags: list[str] = ["style", "script", "chop"]
     tree: list[Any] = []
-    path: str | None = ""
-    parsed_data: list[dict[str, Any]] = []
-    # start: tuple[int, int] = (0, 0)
+    path: str = ""
+    parsed_data: list[ParsedData] = []
     start: list[int] = [0, 0]
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -103,7 +121,7 @@ class ChopperParser(HTMLParser):
             self.tree.append(tag)
             for attr in attrs:
                 if attr[0] == "chopper:file":
-                    self.path = attr[1]
+                    self.path = attr[1] if attr[1] else ""
                     pos = list(self.getpos())
                     pos[0] -= 1
                     if start_tag := self.get_starttag_text():
@@ -117,12 +135,17 @@ class ChopperParser(HTMLParser):
             self.tree.pop()
             if not self.tree:
                 self.parsed_data.append(
-                    {
-                        "path": self.path,
-                        "tag": tag,
-                        "start": self.start,
-                        "end": self.getpos(),
-                    }
+                    ParsedData(
+                        path=self.path,
+                        base_path="",
+                        source_file="",
+                        tag=tag,
+                        start=tuple(self.start),
+                        end=self.getpos(),
+                        content="",
+                        comment_open="",
+                        comment_close="",
+                    )
                 )
                 self.path = ""
 
@@ -149,7 +172,7 @@ def chop(
     source: str,
     types: dict[str, str],
     insert_comments: bool,
-    comments: dict[str, list[str]],
+    comments: dict[str, Comment],
     warn: bool = False,
 ) -> bool:
     """Chop up the source file into the blocks defined by the chopper tags."""
@@ -165,22 +188,20 @@ def chop(
     source_html_split = source_html.splitlines()
     block_count = len(data) - 1
     success: bool = True
-    for i, block in enumerate(data):
-        block["base_path"] = types[block["tag"]]
-        if "{" in block["path"]:
-            show_warning(Action.CHOP, "Magic vars no longer work.")
-        block["content"] = extract_block(
-            block["start"], block["end"], source_html_split
-        )
-        block["source_file"] = source
 
-        c = comments[block["tag"]]
-        block["comment_open"], block["comment_close"] = c
-        if insert_comments:
-            # text = [source, block['path']]
-            dest = Path(os.path.join(block["base_path"], block["path"]))
-            comment = f"{c[0]}{source} -> {dest}{c[1]}"
-            block["content"] = f'\n{comment}\n\n{block["content"]}'
+    for i, block in enumerate(data):
+        block.base_path = types[block.tag]
+        if "{" in block.path:
+            show_warning(Action.CHOP, f'Magic vars no longer work: "{block.path}".')
+        block.content = extract_block(block.start, block.end, source_html_split)
+        block.source_file = source
+
+        comment = comments[block.tag]
+        block.comment_open, block.comment_close = comment
+        if insert_comments and block.path:
+            dest = Path(os.path.join(block.base_path, block.path))
+            comment_line = f"{comment.open}{source} -> {dest}{comment.close}"
+            block.content = f"\n{comment_line}\n\n{block.content}"
 
         last = False if block_count != i else True
         if not new_or_overwrite_file(block, warn, last):
@@ -189,7 +210,9 @@ def chop(
     return success
 
 
-def extract_block(start: list[Any], end: list[Any], source_html: list[Any]) -> str:
+def extract_block(
+    start: tuple[int, ...], end: tuple[int, int], source_html: list[Any]
+) -> str:
     """Extract the block of code from the source.
 
     Extract from the end of the start tag to the start of the end tag."""
@@ -205,7 +228,6 @@ def extract_block(start: list[Any], end: list[Any], source_html: list[Any]) -> s
     else:
         extracted[0] = extracted[0][start_char:]
         extracted[-1] = extracted[-1][:end_char]
-
     extracted_rendered = "\n".join(extracted)
     extracted_rendered = dedent(extracted_rendered)
     extracted_rendered = extracted_rendered.strip()
@@ -215,21 +237,19 @@ def extract_block(start: list[Any], end: list[Any], source_html: list[Any]) -> s
 
 
 def new_or_overwrite_file(
-    block: dict[str, Any], warn: bool = False, last: bool = False
+    block: ParsedData, warn: bool = False, last: bool = False
 ) -> bool:
     """Create or update the file specified in the chopper:file attribute."""
-    content = block["content"]
-    # pp(block)
-    if not block["path"]:
+    content = block.content
+    if not block.path:
         print_action(Action.UNCHANGED, "No destination defined", last=False)
-        # error(Action.CHOP, block['source_file'], 'Destination is not defined.')
-        # sys.exit(1)
         return True
 
-    partial_file = Path(os.path.join(block["base_path"], block["path"]))
+    partial_file = Path(os.path.join(block.base_path, block.path))
 
-    partial_file.parent.mkdir(parents=True, exist_ok=True)
-    print_action(Action.DIR, partial_file.parent)
+    if not partial_file.parent.exists():
+        partial_file.parent.mkdir(parents=True, exist_ok=True)
+        print_action(Action.DIR, partial_file.parent)
 
     try:
         if warn and not partial_file.exists():
@@ -247,14 +267,14 @@ def new_or_overwrite_file(
                     block, content, f, last, partial_file, False, True
                 )
     except IsADirectoryError:
-        show_error(Action.CHOP, block["source_file"], "Destination is a dir.")
+        show_error(Action.CHOP, block.source_file, "Destination is a dir.")
         sys.exit(1)
 
     return success
 
 
 def write_to_file(
-    block: dict[str, Any],
+    block: ParsedData,
     content: str,
     f: TextIO,
     last: bool,
@@ -275,7 +295,7 @@ def write_to_file(
     if current_contents != content:
         if warn:
             show_error(Action.WRITE, str(partial), "File contents differ")
-            show_diff(content, current_contents, block["path"], str(partial))
+            show_diff(content, current_contents, block.path, str(partial))
             success = False
             print()
             # if not DRYRUN:
@@ -378,10 +398,10 @@ def main(
     }
 
     comment_types = {
-        "script": ["// ", ""],
-        "style": ["/* ", " */"],
-        # 'chop': ['<!-- ', ' -->'],
-        "chop": ["{{# ", " #}}"],
+        "script": Comment("// ", ""),
+        "style": Comment("/* ", " */"),
+        # 'chop': Comment('<!-- ', ' -->'),
+        "chop": Comment("{{# ", " #}}"),
     }
 
     success: bool = True
