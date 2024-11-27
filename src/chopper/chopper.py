@@ -93,7 +93,8 @@ def show_error(action: Action, filename: str, msg: str, dry_run: bool = False) -
 def show_warning(action: Action, msg: str) -> None:
     choppa = click.style("CHOPPER:", fg="yellow", bold=True)
     action_pretty = click.style(action.value, fg="yellow", bold=True)
-    print(choppa, action_pretty, msg, file=sys.stderr)
+    msg_pretty = click.style(msg, fg="yellow")
+    print(choppa, "┆ ", msg_pretty, file=sys.stderr)
 
 
 @dataclass
