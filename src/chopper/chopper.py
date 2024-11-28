@@ -303,8 +303,6 @@ def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
         a.splitlines(), b.splitlines(), tofile=fname_a, fromfile=fname_b, n=3
     )
     prefix = "         ┆ "
-    # prefix = "  "
-
     click.echo(prefix)
     for i, line in enumerate(diff):
         if line.startswith("+++"):
@@ -327,23 +325,28 @@ def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
 class ChopEventHandler(FileSystemEventHandler):
     def __init__(
         self,
-        source: str,
         types: dict[str, str],
         comments: bool,
         comment_types: dict[str, Comment],
         warn: bool,
     ) -> None:
         super().__init__()
+        self.types = types
+        self.comments = comments
+        self.comment_types = comment_types
+        self.warn = warn
 
     def on_any_event(self, event: FileSystemEvent) -> None:
-        path = Path(str(event.src_path))
-        is_chopper_file = path.is_file() and path.name.endswith(CHOPPER_NAME)
+        path = str(event.src_path)
+        is_chopper_file = os.path.isfile(path) and path.endswith(CHOPPER_NAME)
 
         if is_chopper_file and event.event_type == "modified":
-            print("Chopper file modified")
+            self.chop_file(path)
 
-    def chop_file(self) -> None:
-        if not chop(source_file, types, comments, comment_types, warn=warn):
+    def chop_file(self, path: str) -> None:
+        if not chop(
+            path, self.types, self.comments, self.comment_types, warn=self.warn
+        ):
             success = False
 
 
@@ -420,13 +423,12 @@ def main(
             success = False
 
     if not success:
-        # show_error(Action.CHOP, "", "Some files were different.")
+        click.secho("Some files are different", fg="red")
         sys.exit(1)
 
     if watch:
-        event_handler = ChopEventHandler()
+        event_handler = ChopEventHandler(types, comments, comment_types, warn=warn)
         observer = Observer()
-        print(source)
         observer.schedule(event_handler, path=source, recursive=True)
         observer.start()
         try:
@@ -435,9 +437,3 @@ def main(
         finally:
             observer.stop()
             observer.join()
-            print('\nStopped watching')
-        
-        
-        # watch_directory(source, types, comments, comment_types, warn)
-        # show_warning("Watch mode not yet implemented.")
-        # sys.exit(1)
