@@ -13,8 +13,12 @@ from typing import Any, NamedTuple
 import click
 from dataclasses import dataclass
 from typing_extensions import TextIO
+import importlib.metadata
+import time
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler, FileSystemEvent
 
-
+__version__ = importlib.metadata.version("chopper")
 NOW = datetime.now().isoformat(timespec="seconds", sep=",")
 DRYRUN = False
 CHOPPER_NAME = ".chopper.html"
@@ -320,6 +324,29 @@ def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
     click.echo(prefix)
 
 
+class ChopEventHandler(FileSystemEventHandler):
+    def __init__(
+        self,
+        source: str,
+        types: dict[str, str],
+        comments: bool,
+        comment_types: dict[str, Comment],
+        warn: bool,
+    ) -> None:
+        super().__init__()
+
+    def on_any_event(self, event: FileSystemEvent) -> None:
+        path = Path(str(event.src_path))
+        is_chopper_file = path.is_file() and path.name.endswith(CHOPPER_NAME)
+
+        if is_chopper_file and event.event_type == "modified":
+            print("Chopper file modified")
+
+    def chop_file(self) -> None:
+        if not chop(source_file, types, comments, comment_types, warn=warn):
+            success = False
+
+
 # fmt: off
 CONTEXT_SETTINGS = {
     "help_option_names": ["-h", "--help"],
@@ -346,6 +373,9 @@ CONTEXT_SETTINGS = {
 @click.option("--dry-run", is_flag=True,
     help="Do not write any file to the filesystem.",
 )
+@click.option("--watch", "-w", is_flag=True,
+    help="Watch the source directory for changes and re-chop the files.")
+@click.version_option(__version__)
 # fmt: on
 def main(
     source: str,
@@ -355,6 +385,7 @@ def main(
     comments: bool,
     warn: bool,
     dry_run: bool,
+    watch: bool,
 ) -> None:
     """Chop files into their separate types, style, script and html.
 
@@ -384,10 +415,29 @@ def main(
     }
 
     success: bool = True
-    for source in chopper_files:
-        if not chop(source, types, comments, comment_types, warn=warn):
+    for source_file in chopper_files:
+        if not chop(source_file, types, comments, comment_types, warn=warn):
             success = False
 
     if not success:
         # show_error(Action.CHOP, "", "Some files were different.")
         sys.exit(1)
+
+    if watch:
+        event_handler = ChopEventHandler()
+        observer = Observer()
+        print(source)
+        observer.schedule(event_handler, path=source, recursive=True)
+        observer.start()
+        try:
+            while True:
+                time.sleep(1)
+        finally:
+            observer.stop()
+            observer.join()
+            print('\nStopped watching')
+        
+        
+        # watch_directory(source, types, comments, comment_types, warn)
+        # show_warning("Watch mode not yet implemented.")
+        # sys.exit(1)
