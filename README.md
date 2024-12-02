@@ -8,7 +8,7 @@ writing partials for server side CMSs.
 
 Write server side partials with all their parts in one file.  Js, css
 and html are extracted and written to seperate files so they can be
-then handled by whatever build tool you use such as webpack.
+then handled by whatever build tool you use, such as webpack.
 
 Given a file in `src/chopper/` called `headline.chopper.html`:
 
@@ -86,3 +86,17 @@ uv run chopper public/chopper/ -s public/js/ -c public/css/ -m public/views/ --d
 export PYTHONBREAKPOINT="pudb.set_trace"; uv run chopper public/chopper/ -s public/js/ -c public/css/ -m public/views/
 ```
 
+### Build
+
+To use globally, install the package.
+
+``` bash
+# install editable
+uv pip install -e .  
+
+# install standalone
+uv build
+uv pip install dist/chopper-X.X.X-py3-none-any.whl
+```
+
+To use inside DDEV.

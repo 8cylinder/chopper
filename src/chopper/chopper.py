@@ -278,11 +278,11 @@ def write_to_file(
     if current_contents != content:
         if warn:
             show_error(Action.WRITE, str(partial), "File contents differ")
-            show_diff(content, current_contents, block.path, str(partial))
+            a = partial.absolute()
+            b = Path(block.source_file).absolute()
+            a, b = remove_common_path(a, b, prefix="…")
+            show_diff(content, current_contents, str(a), str(b))
             success = False
-            # print()
-            # if not DRYRUN:
-            #     sys.exit(1)
         else:
             if newfile:
                 print_action(Action.NEW, partial, last=last)
@@ -298,6 +298,18 @@ def write_to_file(
     return success
 
 
+def remove_common_path(a: Path, b: Path, prefix: str = "") -> tuple[Path, Path]:
+    """Remove the common path from the two paths."""
+    common = Path(os.path.commonpath([a, b]))
+    a_parts = a.parts[len(common.parts) :]
+    b_parts = b.parts[len(common.parts) :]
+    pp([a_parts, b_parts])
+    a = Path(prefix, *a_parts)
+    b = Path(prefix, *b_parts)
+    return a, b
+    # return (prefix + str(a), prefix + str(b))
+
+
 def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
     diff = difflib.unified_diff(
         a.splitlines(), b.splitlines(), tofile=fname_a, fromfile=fname_b, n=3
@@ -311,7 +323,9 @@ def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
             click.echo(prefix + click.style(line, fg="bright_red"), nl=False)
         elif line.startswith("@@"):
             click.echo(
-                prefix + click.style(line, fg="bright_white", bold=True), nl=False
+                prefix
+                + click.style(line, fg="bright_white", bold=True, underline=True),
+                nl=False,
             )
         elif line.startswith("+"):
             click.echo(prefix + click.style(line, fg="bright_green"), nl=True)
@@ -323,6 +337,12 @@ def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
 
 
 class ChopEventHandler(FileSystemEventHandler):
+    source: str
+    types: dict[str, str]
+    comments: bool
+    comment_types: dict[str, Comment]
+    warn: bool
+
     def __init__(
         self,
         types: dict[str, str],
@@ -343,11 +363,11 @@ class ChopEventHandler(FileSystemEventHandler):
         if is_chopper_file and event.event_type == "modified":
             self.chop_file(path)
 
-    def chop_file(self, path: str) -> None:
-        if not chop(
+    def chop_file(self, path: str) -> bool:
+        result = chop(
             path, self.types, self.comments, self.comment_types, warn=self.warn
-        ):
-            success = False
+        )
+        return result
 
 
 # fmt: off
@@ -434,6 +454,8 @@ def main(
         try:
             while True:
                 time.sleep(1)
+        except KeyboardInterrupt:
+            click.echo('\nChopper watch ended.')
         finally:
             observer.stop()
             observer.join()
