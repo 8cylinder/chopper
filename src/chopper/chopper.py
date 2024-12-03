@@ -138,8 +138,14 @@ def find_chopper_files(source: Path) -> list[str]:
 
     for root, dirs, files in os.walk(source):
         for filename in files:
-            if filename.endswith(CHOPPER_NAME):
-                chopper_files.append(os.path.join(root, filename))
+            # print(filename, os.path.islink(filename))
+            try:
+                os.stat(Path(root, filename))
+                if not os.path.islink(filename) and filename.endswith(CHOPPER_NAME):
+                    chopper_files.append(os.path.join(root, filename))
+            except FileNotFoundError:
+                # ignore broken symlinks which are used by Emacs to store backup files
+                continue
 
     return chopper_files
 
@@ -153,8 +159,12 @@ def chop(
 ) -> bool:
     """Chop up the source file into the blocks defined by the chopper tags."""
     print_action(Action.CHOP, source)
-    with open(source, "r") as f:
-        source_html = f.read()
+    try:
+        with open(source, "r") as f:
+            source_html = f.read()
+    except UnicodeDecodeError:
+        show_error(Action.CHOP, source, "File is not a valid UTF-8 file.")
+        return False
 
     parser = ChopperParser()
     parser.parsed_data.clear()
@@ -303,7 +313,6 @@ def remove_common_path(a: Path, b: Path, prefix: str = "") -> tuple[Path, Path]:
     common = Path(os.path.commonpath([a, b]))
     a_parts = a.parts[len(common.parts) :]
     b_parts = b.parts[len(common.parts) :]
-    pp([a_parts, b_parts])
     a = Path(prefix, *a_parts)
     b = Path(prefix, *b_parts)
     return a, b
@@ -390,8 +399,9 @@ CONTEXT_SETTINGS = {
 @click.option("--comments", is_flag=True,
     help="Add comments to generated files.",
 )
-@click.option("--warn", is_flag=True,
-    help="Warn when the file contents differs instead of overwriting it.",
+@click.option("--warn/--overwrite", "-w/-o", default=True,
+  help=("On initial run, warn when the file contents differs instead of overwriting it.  " 
+        "Note that while watching, overwrite is always true."),
 )
 @click.option("--dry-run", is_flag=True,
     help="Do not write any file to the filesystem.",
@@ -447,7 +457,7 @@ def main(
         sys.exit(1)
 
     if watch:
-        event_handler = ChopEventHandler(types, comments, comment_types, warn=warn)
+        event_handler = ChopEventHandler(types, comments, comment_types, warn=False)
         observer = Observer()
         observer.schedule(event_handler, path=source, recursive=True)
         observer.start()
