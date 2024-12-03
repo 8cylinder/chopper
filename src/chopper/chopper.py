@@ -397,11 +397,11 @@ CONTEXT_SETTINGS = {
     help="Destination for the html files.",
 )
 @click.option("--comments", is_flag=True,
-    help="Add comments to generated files.",
+    help="Add comments to generated files that indicate which chopper file the file came from.",
 )
 @click.option("--warn/--overwrite", "-w/-o", default=True,
-  help=("On initial run, warn when the file contents differs instead of overwriting it.  " 
-        "Note that while watching, overwrite is always true."),
+    help=("On initial run, warn when the file contents differs instead of overwriting it. "
+          "Note that while watching, overwrite is always true."),
 )
 @click.option("--dry-run", is_flag=True,
     help="Do not write any file to the filesystem.",
