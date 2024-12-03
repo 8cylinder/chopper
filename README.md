@@ -34,7 +34,7 @@ Given a file in `src/chopper/` called `headline.chopper.html`:
 This command will create three new files:
 
 ``` bash
-python3 chopper --script=src/js --style=src/scss --html=private/templates src/chopper
+chopper --script=src/js --style=src/scss --html=private/templates src/chopper
 ```
 
 It will walk through all the files in `src/chopper` and process all
@@ -53,15 +53,33 @@ python3 chopper --script=src/js --style=src/scss --html=private/templates src/ch
 ```
 
 
+### Installation
+
+This is a python package and it can be installed with pipx and it's
+only available by checking out the git repo.  The [UV packaging
+tool](https://docs.astral.sh/uv/getting-started/installation) is used
+to build the package.
+
+To install it globally,
+
+``` Bash
+git clone <this repo>
+uv build
+pipx install dist/chopper-X.X.X-py3-none-any.whl
+```
+
+
 ### Intergration
 
-Intergration with ddev and laravel mix.
+To intergrate this into a ddev enviroment and have it automatically
+work for any user that runs the ddev enviroment the chopper wheel
+needs to be available to `.ddev/config.yaml`.
 
-In `.ddev/config.yaml`, add `inotify-tools` to `webimage_extra_packages`.
+1. Place the `chopper-X.X.X-py3-none-any.whl` file somewhere in your project.
+2. In `.ddev/config.yaml`, add `pipx` to `webimage_extra_packages`.
+3. Add an `exec:` to `hooks: post-start` in `config.yaml`
+4. `pipx install path/to/chopper-X.X.X-py3-none-any.whl`
 
-DDev needs to be able to access chopper-watch.bash and chopper.py from inside the container.  Create a dir somewhere in your project and copy `chopper-watch.bash` and `chopper.py` to it.
-
-Edit the variables in the top of `chopper-watch.bash` to point to the various locations that it needs.
 
 In `package.json` add the chopper line to the scripts section.  This
 will run the chopper watch script in parallel with npm's watch.
@@ -92,7 +110,7 @@ To use globally, install the package.
 
 ``` bash
 # install editable
-uv pip install -e .  
+uv pip install -e .
 
 # install standalone
 uv build
