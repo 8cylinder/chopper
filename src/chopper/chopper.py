@@ -17,6 +17,11 @@ import importlib.metadata
 import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
+from dotenv import load_dotenv
+
+
+# Load environment variables from .env file
+load_dotenv()
 
 __version__ = importlib.metadata.version("chopper")
 NOW = datetime.now().isoformat(timespec="seconds", sep=",")
@@ -385,29 +390,33 @@ CONTEXT_SETTINGS = {
     "token_normalize_func": lambda x: x.lower(),
 }
 @click.command(context_settings=CONTEXT_SETTINGS)
-@click.argument("source", type=click.Path(True, path_type=Path, file_okay=True, dir_okay=True))
+@click.argument("source", envvar="CHOPPER_SOURCE_DIR", 
+                type=click.Path(exists=True, path_type=Path, file_okay=True, dir_okay=True))
 
-@click.option("--script-dir", "-s", type=click.Path(exists=True, file_okay=False),
-    help="Destination for the script files.",
+@click.option("--script-dir", "-s", envvar="CHOPPER_SCRIPT_DIR",
+              type=click.Path(exists=True, path_type=Path, file_okay=False),
+              help="Destination for the script files.",
 )
-@click.option("--style-dir", "-c", type=click.Path(exists=True, file_okay=False),
-    help="Destination for the style files.",
+@click.option("--style-dir", "-c", envvar="CHOPPER_STYLE_DIR",
+              type=click.Path(exists=True, path_type=Path, file_okay=False),
+              help="Destination for the style files.",
 )
-@click.option("--html-dir", "-m", type=click.Path(exists=True, file_okay=False),
-    help="Destination for the html files.",
+@click.option("--html-dir", "-m", envvar="CHOPPER_HTML_DIR",
+              type=click.Path(exists=True, path_type=Path, file_okay=False),
+              help="Destination for the html files.",
 )
-@click.option("--comments", is_flag=True,
-    help="Add comments to generated files that indicate which chopper file the file came from.",
+@click.option("--comments", envvar="CHOPPER_COMMENTS", is_flag=True,
+              help="Add comments to generated files that indicate which chopper file the file came from.",
 )
-@click.option("--warn/--overwrite", "-w/-o", default=True,
-    help=("On initial run, warn when the file contents differs instead of overwriting it. "
-          "Note that while watching, overwrite is always true."),
+@click.option("--warn/--overwrite", "-w/-o", envvar="WARN", default=True,
+              help=("On initial run, warn when the file contents differs instead of overwriting it. "
+                    "Note that while watching, overwrite is always true."),
 )
 @click.option("--dry-run", is_flag=True,
-    help="Do not write any file to the filesystem.",
+              help="Do not write any file to the filesystem.",
 )
-@click.option("--watch", "-w", is_flag=True,
-    help="Watch the source directory for changes and re-chop the files.")
+@click.option("--watch", "-w", envvar="CHOPPER_WATCH", is_flag=True,
+              help="Watch the source directory for changes and re-chop the files.")
 @click.version_option(__version__)
 # fmt: on
 def main(
@@ -423,6 +432,8 @@ def main(
     """Chop files into their separate types, style, script and html.
 
     Get to the choppa!"""
+    # pp(locals())
+    # exit()
     global DRYRUN
     DRYRUN = dry_run
     if os.path.exists(source):

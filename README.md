@@ -88,15 +88,15 @@ export PYTHONBREAKPOINT="pudb.set_trace"; uv run chopper public/chopper/ -s publ
 
 ### Build
 
-To use globally, install the package.
+To make available globally, install the package using `uv tool`.
 
 ``` bash
 # install editable
-uv pip install -e .  
+uv tool install --editable .
 
 # install standalone
 uv build
-uv pip install dist/chopper-X.X.X-py3-none-any.whl
+uv tool install dist/chopper-X.X.X-py3-none-any.whl
 ```
 
 To use inside DDEV.
