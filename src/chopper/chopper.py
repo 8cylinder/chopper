@@ -24,7 +24,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 __version__ = importlib.metadata.version("chopper")
-NOW = datetime.now().isoformat(timespec="seconds", sep=",")
 DRYRUN = False
 CHOPPER_NAME = ".chopper.html"
 
@@ -57,10 +56,11 @@ def print_action(
     tree: str = ""
     date: str = ""
     if action == Action.CHOP:
-        date = click.style(NOW, fg="bright_black")
+        now = datetime.now().isoformat(timespec="seconds", sep=",")
+        date = click.style(now, fg="bright_black")
     else:
         tree = "└─ " if last else "├─ "
-    click.echo(f"{choppa} {tree}{task} {filename}  {date}")
+    click.echo(f"{choppa} {tree}{task}  {filename}  {date}")
 
 
 def show_error(action: Action, filename: str, msg: str, dry_run: bool = False) -> None:
@@ -408,7 +408,7 @@ CONTEXT_SETTINGS = {
 @click.option("--comments", envvar="CHOPPER_COMMENTS", is_flag=True,
               help="Add comments to generated files that indicate which chopper file the file came from.",
 )
-@click.option("--warn/--overwrite", "-w/-o", envvar="WARN", default=True,
+@click.option("--warn/--overwrite", "-w/-o", envvar="CHOPPER_WARN", default=True,
               help=("On initial run, warn when the file contents differs instead of overwriting it. "
                     "Note that while watching, overwrite is always true."),
 )
@@ -431,9 +431,26 @@ def main(
 ) -> None:
     """Chop files into their separate types, style, script and html.
 
-    Get to the choppa!"""
-    # pp(locals())
+    Get to the choppa!
+
+    These environment variables can be used instead of command line
+    options.  They can be added to a .env file.
+
+    \b
+    CHOPPER_SOURCE_DIR
+    CHOPPER_SCRIPT_DIR
+    CHOPPER_STYLE_DIR
+    CHOPPER_HTML_DIR
+    CHOPPER_COMMENTS
+    CHOPPER_WARN
+    CHOPPER_WATCH
+    """
+
+    # for key, value in os.environ.items():
+    #     if key.startswith("CHOPPER_"):
+    #         print(f'{key:20} {value}')
     # exit()
+    
     global DRYRUN
     DRYRUN = dry_run
     if os.path.exists(source):
