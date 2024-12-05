@@ -30,11 +30,11 @@ def find_file_upwards(start_dir: Path, target_file: str) -> Path | None:
     return None
 
 
-if DOTENV := find_file_upwards(Path.cwd(), ".env"):
-    if load_dotenv(DOTENV):
-        print(f"Using .env file: {DOTENV}")
+if dot_env := find_file_upwards(Path.cwd(), ".env"):
+    if load_dotenv(dot_env):
+        print(f"Using .env file: {dot_env}")
     else:
-        print(f"Failed to load .env file: {DOTENV}")
+        raise FileNotFoundError(dot_env)
 
 
 __version__ = importlib.metadata.version("chopper")
@@ -409,26 +409,20 @@ CONTEXT_SETTINGS = {
 
 @click.option("--script-dir", "-s", envvar="CHOPPER_SCRIPT_DIR",
               type=click.Path(exists=True, path_type=Path, file_okay=False),
-              help="Destination for the script files.",
-)
+              help="Destination for the script files.")
 @click.option("--style-dir", "-c", envvar="CHOPPER_STYLE_DIR",
               type=click.Path(exists=True, path_type=Path, file_okay=False),
-              help="Destination for the style files.",
-)
+              help="Destination for the style files.")
 @click.option("--html-dir", "-m", envvar="CHOPPER_HTML_DIR",
               type=click.Path(exists=True, path_type=Path, file_okay=False),
-              help="Destination for the html files.",
-)
+              help="Destination for the html files.")
 @click.option("--comments/--no-comments", envvar="CHOPPER_COMMENTS", is_flag=True,
-              help="Add comments to generated files that indicate which chopper file the file came from.",
-)
+              help="Add comments to generated files that indicate which chopper file the file came from.")
 @click.option("--warn/--overwrite", "-w/-o", envvar="CHOPPER_WARN", default=True,
               help=("On initial run, warn when the file contents differs instead of overwriting it. "
-                    "Note that while watching, overwrite is always true."),
-)
+                    "Note that while watching, overwrite is always true."))
 @click.option("--dry-run", is_flag=True,
-              help="Do not write any file to the filesystem.",
-)
+              help="Do not write any file to the filesystem.")
 @click.option("--watch/--no-watch", envvar="CHOPPER_WATCH", default=False,
               help="Watch the source directory for changes and re-chop the files.")
 @click.option("--debug", is_flag=True, help="Print debug information.")
@@ -447,7 +441,7 @@ def main(
 ) -> None:
     """Chop files into their separate types, style, script and html.
 
-    Get to the choppa!
+    Get to the choppa! 🚁
 
     These environment variables can be used instead of command line
     options.  They can be added to a .env file.
