@@ -20,8 +20,22 @@ from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from dotenv import load_dotenv
 
 
-# Load environment variables from .env file
-load_dotenv()
+def find_file_upwards(start_dir: Path, target_file: str) -> Path | None:
+    current_dir = start_dir.resolve()
+    while current_dir != current_dir.parent:
+        target_path = current_dir / target_file
+        if target_path.exists():
+            return target_path
+        current_dir = current_dir.parent
+    return None
+
+
+if DOTENV := find_file_upwards(Path.cwd(), ".env"):
+    if load_dotenv(DOTENV):
+        print(f"Using .env file: {DOTENV}")
+    else:
+        print(f"Failed to load .env file: {DOTENV}")
+
 
 __version__ = importlib.metadata.version("chopper")
 DRYRUN = False
@@ -390,7 +404,7 @@ CONTEXT_SETTINGS = {
     "token_normalize_func": lambda x: x.lower(),
 }
 @click.command(context_settings=CONTEXT_SETTINGS)
-@click.argument("source", envvar="CHOPPER_SOURCE_DIR", 
+@click.argument("source", envvar="CHOPPER_SOURCE_DIR",
                 type=click.Path(exists=True, path_type=Path, file_okay=True, dir_okay=True))
 
 @click.option("--script-dir", "-s", envvar="CHOPPER_SCRIPT_DIR",
@@ -405,7 +419,7 @@ CONTEXT_SETTINGS = {
               type=click.Path(exists=True, path_type=Path, file_okay=False),
               help="Destination for the html files.",
 )
-@click.option("--comments", envvar="CHOPPER_COMMENTS", is_flag=True,
+@click.option("--comments/--no-comments", envvar="CHOPPER_COMMENTS", is_flag=True,
               help="Add comments to generated files that indicate which chopper file the file came from.",
 )
 @click.option("--warn/--overwrite", "-w/-o", envvar="CHOPPER_WARN", default=True,
@@ -415,8 +429,9 @@ CONTEXT_SETTINGS = {
 @click.option("--dry-run", is_flag=True,
               help="Do not write any file to the filesystem.",
 )
-@click.option("--watch", "-w", envvar="CHOPPER_WATCH", is_flag=True,
+@click.option("--watch/--no-watch", envvar="CHOPPER_WATCH", default=False,
               help="Watch the source directory for changes and re-chop the files.")
+@click.option("--debug", is_flag=True, help="Print debug information.")
 @click.version_option(__version__)
 # fmt: on
 def main(
@@ -428,6 +443,7 @@ def main(
     warn: bool,
     dry_run: bool,
     watch: bool,
+    debug: bool,
 ) -> None:
     """Chop files into their separate types, style, script and html.
 
@@ -446,11 +462,18 @@ def main(
     CHOPPER_WATCH
     """
 
-    # for key, value in os.environ.items():
-    #     if key.startswith("CHOPPER_"):
-    #         print(f'{key:20} {value}')
-    # exit()
-    
+    if debug:
+        print()
+        click.secho("Locals:", bold=True)
+        for key, value in locals().items():
+            print(f'{key:10} {value}')
+        print()
+        click.secho('Environment variables:', bold=True)
+        for key, value in os.environ.items():
+            if key.startswith("CHOPPER_"):
+                print(f'{key:20}{value}')
+        print()
+
     global DRYRUN
     DRYRUN = dry_run
     if os.path.exists(source):
