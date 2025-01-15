@@ -10,12 +10,9 @@ from html.parser import HTMLParser
 from pathlib import Path
 from pprint import pprint as pp  # noqa: F401
 from textwrap import dedent
-from typing import Any, NamedTuple, TextIO
-
+from typing import Any, NamedTuple, TextIO  # from typing_extensions import TextIO
 import click
-from typing_extensions import TextIO
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
-
 from dotenv import load_dotenv
 
 
