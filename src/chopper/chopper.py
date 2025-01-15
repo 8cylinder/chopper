@@ -1,23 +1,23 @@
-from datetime import datetime
+import difflib
+import errno
+import importlib.metadata
+import io
 import os
 import sys
-import errno
-import io
-from textwrap import dedent
-from pprint import pprint as pp  # noqa: F401
+import time
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
 from html.parser import HTMLParser
 from pathlib import Path
-from enum import Enum
-import difflib
-from typing import Any, NamedTuple
+from pprint import pprint as pp  # noqa: F401
+from textwrap import dedent
+from typing import Any, NamedTuple, TextIO
+
 import click
-from dataclasses import dataclass
-from typing_extensions import TextIO
-import importlib.metadata
-import time
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from dotenv import load_dotenv
+from watchdog.events import FileSystemEventHandler, FileSystemEvent
+from watchdog.observers import Observer
 
 
 def find_file_upwards(start_dir: Path, target_file: str) -> Path | None:
