@@ -1,18 +1,18 @@
-import difflib
-import errno
-import io
+from datetime import datetime
 import os
 import sys
-from dataclasses import dataclass
-from datetime import datetime
-from enum import Enum
+import errno
+import io
+from textwrap import dedent
+from pprint import pprint as pp  # noqa: F401
 from html.parser import HTMLParser
 from pathlib import Path
-from pprint import pprint as pp  # noqa: F401
-from textwrap import dedent
-from typing import Any, NamedTuple, TextIO  # from typing_extensions import TextIO
+from enum import Enum
+import difflib
+from typing import Any, NamedTuple
 import click
-from watchdog.events import FileSystemEventHandler, FileSystemEvent
+from dataclasses import dataclass
+from typing_extensions import TextIO
 from dotenv import load_dotenv
 
 
@@ -357,37 +357,3 @@ def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
         else:
             click.echo(prefix + click.style(line, fg="bright_black"))
     click.echo(prefix)
-
-
-class ChopEventHandler(FileSystemEventHandler):
-    source: str
-    types: dict[str, str]
-    comments: bool
-    comment_types: dict[str, Comment]
-    warn: bool
-
-    def __init__(
-        self,
-        types: dict[str, str],
-        comments: bool,
-        comment_types: dict[str, Comment],
-        warn: bool,
-    ) -> None:
-        super().__init__()
-        self.types = types
-        self.comments = comments
-        self.comment_types = comment_types
-        self.warn = warn
-
-    def on_any_event(self, event: FileSystemEvent) -> None:
-        path = str(event.src_path)
-        is_chopper_file = os.path.isfile(path) and path.endswith(CHOPPER_NAME)
-
-        if is_chopper_file and event.event_type == "modified":
-            self.chop_file(path)
-
-    def chop_file(self, path: str) -> bool:
-        result = chop(
-            path, self.types, self.comments, self.comment_types, warn=self.warn
-        )
-        return result

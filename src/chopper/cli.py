@@ -3,12 +3,47 @@ import sys
 import click
 from pathlib import Path
 import importlib.metadata
-from .chopper import chop, find_chopper_files, show_error, Comment, Action
-from .chopper import ChopEventHandler
+from watchdog.events import FileSystemEventHandler, FileSystemEvent
+from .chopper import chop, find_chopper_files, show_error, Comment, Action, CHOPPER_NAME
 import time  # noqa
 from watchdog.observers import Observer
 
 __version__ = importlib.metadata.version("chopper")
+
+
+class ChopEventHandler(FileSystemEventHandler):
+    source: str
+    types: dict[str, str]
+    comments: bool
+    comment_types: dict[str, Comment]
+    warn: bool
+
+    def __init__(
+        self,
+        types: dict[str, str],
+        comments: bool,
+        comment_types: dict[str, Comment],
+        warn: bool,
+    ) -> None:
+        super().__init__()
+        self.types = types
+        self.comments = comments
+        self.comment_types = comment_types
+        self.warn = warn
+
+    def on_any_event(self, event: FileSystemEvent) -> None:
+        path = str(event.src_path)
+        is_chopper_file = os.path.isfile(path) and path.endswith(CHOPPER_NAME)
+
+        if is_chopper_file and event.event_type == "modified":
+            self.chop_file(path)
+
+    def chop_file(self, path: str) -> bool:
+        result = chop(
+            path, self.types, self.comments, self.comment_types, warn=self.warn
+        )
+        return result
+
 
 # fmt: off
 CONTEXT_SETTINGS = {

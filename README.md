@@ -3,11 +3,11 @@
 *Get to the choppa!* <br><br>
 
 
-Split a single file into seperate files.  This is designed mostly for
+Split a single file into separate files.  This is designed mostly for
 writing partials for server side CMSs.
 
 Write server side partials with all their parts in one file.  Js, css
-and html are extracted and written to seperate files so they can be
+and html are extracted and written to separate files so they can be
 then handled by whatever build tool you use, such as webpack.
 
 Given a file in `src/chopper/` called `headline.chopper.html`:
@@ -52,10 +52,25 @@ the script won't walk the filesystem looking for chopper files.
 python3 chopper --script=src/js --style=src/scss --html=private/templates src/chopper/headline.chopper.html
 ```
 
+### .env
+
+Instead of passing the arguments to the command line, they can be set
+in a `.env` file.
+
+Example:
+``` dotenv
+CHOPPER_SOURCE_DIR=src/chopper
+CHOPPER_SCRIPT_DIR=src/js
+CHOPPER_STYLE_DIR=src/css
+CHOPPER_HTML_DIR=src/views
+CHOPPER_COMMENTS=true
+CHOPPER_WARN=true
+CHOPPER_WATCH=true
+```
 
 ### Installation
 
-This is a python package and it can be installed with pipx and it's
+This is a python package that can be installed with pipx, and it's
 only available by checking out the git repo.  The [UV packaging
 tool](https://docs.astral.sh/uv/getting-started/installation) is used
 to build the package.
@@ -69,10 +84,10 @@ pipx install dist/chopper-X.X.X-py3-none-any.whl
 ```
 
 
-### Intergration
+### Integration
 
-To intergrate this into a ddev enviroment and have it automatically
-work for any user that runs the ddev enviroment the chopper wheel
+To integrate this into a ddev environment and have it automatically
+work for any user that runs the ddev environment the chopper wheel
 needs to be available to `.ddev/config.yaml`.
 
 1. Place the `chopper-X.X.X-py3-none-any.whl` file somewhere in your project.
@@ -115,6 +130,4 @@ uv tool install --editable .
 # install standalone
 uv build
 uv tool install dist/chopper-X.X.X-py3-none-any.whl
-```
-
-To use inside DDEV.
+    ```
