@@ -1,18 +1,18 @@
-from datetime import datetime
-import os
-import sys
+import difflib
 import errno
 import io
-from textwrap import dedent
-from pprint import pprint as pp  # noqa: F401
+import os
+import sys
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
 from html.parser import HTMLParser
 from pathlib import Path
-from enum import Enum
-import difflib
-from typing import Any, NamedTuple
+from pprint import pprint as pp  # noqa: F401
+from textwrap import dedent
+from typing import Any, NamedTuple, TextIO  # from typing_extensions import TextIO
 import click
-from dataclasses import dataclass
-from typing_extensions import TextIO
+from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from dotenv import load_dotenv
 
 
@@ -357,3 +357,4 @@ def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
         else:
             click.echo(prefix + click.style(line, fg="bright_black"))
     click.echo(prefix)
+
