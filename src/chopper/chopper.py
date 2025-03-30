@@ -12,23 +12,30 @@ from pprint import pprint as pp  # noqa: F401
 from textwrap import dedent
 from typing import Any, NamedTuple, TextIO  # from typing_extensions import TextIO
 import click
-from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from dotenv import load_dotenv
 
 
-def find_file_upwards(start_dir: Path, target_file: str) -> Path | None:
+def find_file_upwards(start_dir: Path, target_files: list[str]) -> Path | None:
+    """Find the chopper conf file by searching upwards from the current directory."""
     current_dir = start_dir.resolve()
     while current_dir != current_dir.parent:
-        target_path = current_dir / target_file
-        if target_path.exists():
-            return target_path
+        for target_file in target_files:
+            target_path = current_dir / target_file
+            if target_path.exists():
+                return target_path
         current_dir = current_dir.parent
     return None
 
 
-if dot_env := find_file_upwards(Path.cwd(), ".env"):
+chopper_confs = [
+    ".chopper",
+    "chopper.conf",
+    ".env.chopper",
+    ".env",
+]
+if dot_env := find_file_upwards(Path.cwd(), chopper_confs):
     if load_dotenv(dot_env):
-        print(f"Using .env file: {dot_env}")
+        print(f"Using environment vars from: {dot_env}")
     else:
         raise FileNotFoundError(dot_env)
 
@@ -357,4 +364,3 @@ def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
         else:
             click.echo(prefix + click.style(line, fg="bright_black"))
     click.echo(prefix)
-
