@@ -130,7 +130,7 @@ class ChopperParser(HTMLParser):
     def handle_endtag(self, tag: str) -> None:
         if tag in self.tags:
             self.tree.pop()
-            if not self.tree:
+            if not self.tree and self.path:
                 self.parsed_data.append(
                     ParsedData(
                         path=self.path,
@@ -231,6 +231,7 @@ def extract_block(
     end_char: int = end[1]
 
     extracted: list[Any] = source_html[start_line:end_line]
+
     if len(extracted) == 1:
         extracted[0] = extracted[0][start_char:end_char]
     else:
