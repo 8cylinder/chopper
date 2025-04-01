@@ -12,6 +12,7 @@ from pprint import pprint as pp  # noqa: F401
 from textwrap import dedent
 from typing import Any, NamedTuple, TextIO  # from typing_extensions import TextIO
 import click
+from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from dotenv import load_dotenv
 
 
@@ -28,10 +29,10 @@ def find_file_upwards(start_dir: Path, target_files: list[str]) -> Path | None:
 
 
 chopper_confs = [
-    ".chopper",
-    "chopper.conf",
-    ".env.chopper",
-    ".env",
+    '.chopper',
+    'chopper.conf',
+    '.env.chopper',
+    '.env',
 ]
 if dot_env := find_file_upwards(Path.cwd(), chopper_confs):
     if load_dotenv(dot_env):
@@ -354,8 +355,7 @@ def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
             click.echo(prefix + click.style(line, fg="bright_red"), nl=False)
         elif line.startswith("@@"):
             click.echo(
-                prefix
-                + click.style(line, fg="bright_white", bold=True, underline=True),
+                prefix + click.style(line, fg="bright_white", bold=True, underline=True),
                 nl=False,
             )
         elif line.startswith("+"):
