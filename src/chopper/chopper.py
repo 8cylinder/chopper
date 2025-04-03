@@ -16,19 +16,27 @@ from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from dotenv import load_dotenv
 
 
-def find_file_upwards(start_dir: Path, target_file: str) -> Path | None:
+def find_file_upwards(start_dir: Path, target_files: list[str]) -> Path | None:
+    """Find the chopper conf file by searching upwards from the current directory."""
     current_dir = start_dir.resolve()
     while current_dir != current_dir.parent:
-        target_path = current_dir / target_file
-        if target_path.exists():
-            return target_path
+        for target_file in target_files:
+            target_path = current_dir / target_file
+            if target_path.exists():
+                return target_path
         current_dir = current_dir.parent
     return None
 
 
-if dot_env := find_file_upwards(Path.cwd(), ".env"):
+chopper_confs = [
+    '.chopper',
+    'chopper.conf',
+    '.env.chopper',
+    '.env',
+]
+if dot_env := find_file_upwards(Path.cwd(), chopper_confs):
     if load_dotenv(dot_env):
-        print(f"Using .env file: {dot_env}")
+        print(f"Using environment vars from: {dot_env}")
     else:
         raise FileNotFoundError(dot_env)
 
@@ -123,7 +131,7 @@ class ChopperParser(HTMLParser):
     def handle_endtag(self, tag: str) -> None:
         if tag in self.tags:
             self.tree.pop()
-            if not self.tree:
+            if not self.tree and self.path:
                 self.parsed_data.append(
                     ParsedData(
                         path=self.path,
@@ -224,6 +232,7 @@ def extract_block(
     end_char: int = end[1]
 
     extracted: list[Any] = source_html[start_line:end_line]
+
     if len(extracted) == 1:
         extracted[0] = extracted[0][start_char:end_char]
     else:
@@ -346,8 +355,7 @@ def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
             click.echo(prefix + click.style(line, fg="bright_red"), nl=False)
         elif line.startswith("@@"):
             click.echo(
-                prefix
-                + click.style(line, fg="bright_white", bold=True, underline=True),
+                prefix + click.style(line, fg="bright_white", bold=True, underline=True),
                 nl=False,
             )
         elif line.startswith("+"):
@@ -357,37 +365,3 @@ def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
         else:
             click.echo(prefix + click.style(line, fg="bright_black"))
     click.echo(prefix)
-
-
-class ChopEventHandler(FileSystemEventHandler):
-    source: str
-    types: dict[str, str]
-    comments: bool
-    comment_types: dict[str, Comment]
-    warn: bool
-
-    def __init__(
-        self,
-        types: dict[str, str],
-        comments: bool,
-        comment_types: dict[str, Comment],
-        warn: bool,
-    ) -> None:
-        super().__init__()
-        self.types = types
-        self.comments = comments
-        self.comment_types = comment_types
-        self.warn = warn
-
-    def on_any_event(self, event: FileSystemEvent) -> None:
-        path = str(event.src_path)
-        is_chopper_file = os.path.isfile(path) and path.endswith(CHOPPER_NAME)
-
-        if is_chopper_file and event.event_type == "modified":
-            self.chop_file(path)
-
-    def chop_file(self, path: str) -> bool:
-        result = chop(
-            path, self.types, self.comments, self.comment_types, warn=self.warn
-        )
-        return result

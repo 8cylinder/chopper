@@ -6,6 +6,16 @@ readme = "README.md"
 authors = [
     { name = "Sheldon McGrandle", email = "developer@8cylinder.com" }
 ]
+classifiers = [
+    'License :: OSI Approved :: MIT License',
+    'Operating System :: MacOS',
+    'Operating System :: POSIX :: Linux',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Intended Audience :: Developers',
+    'Natural Language :: English',
+]
 requires-python = ">=3.11"
 dependencies = [
     "click>=8.1.7",
@@ -26,4 +36,9 @@ dev = [
     "ipython>=8.30.0",
     "mypy>=1.13.0",
     "pudb>=2024.1.3",
+    "ruff>=0.9.4",
 ]
+
+[project.urls]
+Homepage = "https://github.com/8cylinder/chopper"
+Issues = "https://github.com/8cylinder/chopper/issues"
