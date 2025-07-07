@@ -50,8 +50,25 @@ class Action(Enum):
     WRITE = "Write"
     NEW = "New"
     DIR = "Mkdir"
+    MISSMATCH = "Files differ"
     UNCHANGED = "File unchanged"
     DOES_NOT_EXIST = "Does not exist"
+
+
+class Chopped(NamedTuple):
+    action: Action
+    dest_file: Path
+    msg: str | None = None
+    diff: str | None = None
+
+
+class ChopperLog(NamedTuple):
+    source: Path
+    chopped: list[Chopped] = []
+
+
+# log = ChopperLog("chopper.html")
+# l.chopped.append(Chopped(Action.CHOP, "style.css", "diff"))
 
 
 class Comment(NamedTuple):
@@ -181,6 +198,7 @@ def chop(
 ) -> bool:
     """Chop up the source file into the blocks defined by the chopper tags."""
     print_action(Action.CHOP, source)
+    log = ChopperLog(Path(source))
     try:
         with open(source, "r") as f:
             source_html = f.read()
@@ -213,7 +231,7 @@ def chop(
             block.content = f"\n{comment_line}\n\n{block.content}"
 
         last = False if block_count != i else True
-        if not new_or_overwrite_file(block, warn, last):
+        if not new_or_overwrite_file(block, log, warn, last):
             success = False
 
     return success
@@ -247,21 +265,22 @@ def extract_block(
 
 
 def new_or_overwrite_file(
-    block: ParsedData, warn: bool = False, last: bool = False
+    block: ParsedData, log: ChopperLog, warn: bool = False, last: bool = False
 ) -> bool:
     """Create or update the file specified in the chopper:file attribute."""
     content = block.content
     if not block.path:
         print_action(Action.UNCHANGED, "No destination defined", last=False)
+        log.chopped.append(Chopped(Action.UNCHANGED, "No destination defined"))
         return True
 
     partial_file = Path(os.path.join(block.base_path, block.path))
-    # print(f"Partial file: {partial_file}")
 
     if not partial_file.parent.exists():
         if not DRYRUN:
             partial_file.parent.mkdir(parents=True, exist_ok=True)
         print_action(Action.DIR, partial_file.parent)
+        log.chopped.append(Chopped(Action.DIR, partial_file.parent))
 
     success: bool = False
     try:
@@ -343,8 +362,9 @@ def remove_common_path(a: Path, b: Path, prefix: str = "") -> tuple[Path, Path]:
 
 
 def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
+    context = 3
     diff = difflib.unified_diff(
-        a.splitlines(), b.splitlines(), tofile=fname_a, fromfile=fname_b, n=3
+        a.splitlines(), b.splitlines(), tofile=fname_a, fromfile=fname_b, n=context
     )
     prefix = "         ┆ "
     click.echo(prefix)
