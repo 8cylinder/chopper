@@ -15,29 +15,63 @@ import click
 from dotenv import load_dotenv
 
 
-def find_file_upwards(start_dir: Path, target_files: list[str]) -> Path | None:
-    """Find the chopper conf file by searching upwards from the current directory."""
+def validate_output_path(file_path: str, base_path: str) -> tuple[bool, str]:
+    """Validate that output path stays within base directory.
+
+    Args:
+        file_path: The requested output file path from chopper:file attribute
+        base_path: The base directory that files should be written to
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not file_path or not base_path:
+        return False, "Empty file path or base path"
+
+    try:
+        # Resolve the paths to handle '..' and '.' components
+        base_resolved = Path(base_path).resolve()
+        requested_path = Path(base_path, file_path).resolve()
+
+        # Check if the requested path is within the base directory
+        try:
+            requested_path.relative_to(base_resolved)
+            return True, ""
+        except ValueError:
+            return False, f"Path '{file_path}' attempts to write outside allowed directory"
+
+    except (ValueError, OSError) as e:
+        return False, f"Invalid path '{file_path}': {e}"
+
+
+def find_file_upwards(
+    start_dir: Path, target_files: list[str], max_depth: int = 5
+) -> Path | None:
+    """Find config file by searching upwards from current directory.
+
+    Args:
+        start_dir: Directory to start search from
+        target_files: List of filenames to search for
+        max_depth: Maximum number of directories to search upward
+
+    Returns:
+        Path to found config file, or None if not found
+    """
     current_dir = start_dir.resolve()
-    while current_dir != current_dir.parent:
+    depth = 0
+
+    while current_dir != current_dir.parent and depth < max_depth:
         for target_file in target_files:
             target_path = current_dir / target_file
-            if target_path.exists():
+            # Only return regular files, not directories or special files
+            if target_path.exists() and target_path.is_file():
                 return target_path
         current_dir = current_dir.parent
+        depth += 1
     return None
 
 
-chopper_confs = [
-    ".chopper",
-    "chopper.conf",
-    ".env.chopper",
-    ".env",
-]
-if dot_env := find_file_upwards(Path.cwd(), chopper_confs):
-    if load_dotenv(dot_env):
-        print(f"Using environment vars from: {dot_env}")
-    else:
-        raise FileNotFoundError(dot_env)
+# Config loading moved to after function definitions
 
 
 DRYRUN = False
@@ -134,6 +168,22 @@ def show_warning(msg: str) -> None:
     choppa = click.style("CHOPPER:", fg="yellow", bold=True)
     msg_pretty = click.style(msg, fg="yellow")
     click.echo(f"{choppa} ┆ {msg_pretty}", err=True)
+
+
+# Load configuration files securely
+chopper_confs = [
+    ".chopper",
+    "chopper.conf",
+    ".env.chopper",
+    ".env",
+]
+if dot_env := find_file_upwards(Path.cwd(), chopper_confs):
+    try:
+        if load_dotenv(dot_env):
+            print(f"Using environment vars from: {dot_env}")
+    except Exception as e:
+        show_warning(f"Failed to load config file {dot_env}: {e}")
+        # Continue execution without config file
 
 
 @dataclass
@@ -247,6 +297,15 @@ def chop(
         # block.base_path = root
         if "{" in block.path:
             show_warning(f'Magic vars no longer work: "{block.path}".')
+
+        # SECURITY: Validate output path to prevent directory traversal
+        if block.path:
+            is_valid, error_msg = validate_output_path(block.path, block.base_path)
+            if not is_valid:
+                show_error(Action.CHOP, source, f"Security violation: {error_msg}")
+                success = False
+                continue  # Skip this block entirely
+
         block.content = extract_block(block.start, block.end, source_html_split)
         block.source_file = source
 
@@ -311,6 +370,13 @@ def new_or_overwrite_file(
         print_action(Action.UNCHANGED, "No destination defined", last=False)
         log.chopped.append(Chopped(Action.UNCHANGED, "No destination defined"))
         return True
+
+    # SECURITY: Validate output path to prevent directory traversal (defense in depth)
+    is_valid, error_msg = validate_output_path(block.path, block.base_path)
+    if not is_valid:
+        show_error(Action.WRITE, block.source_file, f"Security violation: {error_msg}")
+        log.chopped.append(Chopped(Action.MISSMATCH, Path(block.path), error_msg))
+        return False
 
     partial_file = Path(os.path.join(block.base_path, block.path))
 

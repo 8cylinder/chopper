@@ -5,10 +5,10 @@
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/.mypy_cache" />
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
-      <excludeFolder url="file://$MODULE_DIR$/public/css" />
-      <excludeFolder url="file://$MODULE_DIR$/public/js" />
-      <excludeFolder url="file://$MODULE_DIR$/public/views" />
       <excludeFolder url="file://$MODULE_DIR$/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/test-chopper/css" />
+      <excludeFolder url="file://$MODULE_DIR$/test-chopper/js" />
+      <excludeFolder url="file://$MODULE_DIR$/test-chopper/views" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.11 (chopper)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
