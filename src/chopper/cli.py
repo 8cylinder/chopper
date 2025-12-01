@@ -4,7 +4,14 @@ import click
 from pathlib import Path
 import importlib.metadata
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
-from .chopper import chop, find_chopper_files, show_error, Comment, Action, CHOPPER_NAME
+from .chopper import (
+    chop,
+    find_chopper_files,
+    show_error,
+    CommentType,
+    Action,
+    CHOPPER_NAME,
+)
 import time  # noqa
 from watchdog.observers import Observer
 
@@ -14,21 +21,18 @@ __version__ = importlib.metadata.version("chopper")
 class ChopEventHandler(FileSystemEventHandler):
     source: str
     types: dict[str, str]
-    comments: bool
-    comment_types: dict[str, Comment]
+    comments: CommentType
     warn: bool
 
     def __init__(
         self,
         types: dict[str, str],
-        comments: bool,
-        comment_types: dict[str, Comment],
+        comments: CommentType,
         warn: bool,
     ) -> None:
         super().__init__()
         self.types = types
         self.comments = comments
-        self.comment_types = comment_types
         self.warn = warn
 
     def on_any_event(self, event: FileSystemEvent) -> None:
@@ -39,9 +43,7 @@ class ChopEventHandler(FileSystemEventHandler):
             self.chop_file(path)
 
     def chop_file(self, path: str) -> bool:
-        result = chop(
-            path, self.types, self.comments, self.comment_types, warn=self.warn
-        )
+        result = chop(path, self.types, self.comments, warn=self.warn)
         return result
 
 
@@ -63,8 +65,10 @@ CONTEXT_SETTINGS = {
 @click.option("--html-dir", "-m", envvar="CHOPPER_HTML_DIR",
               type=click.Path(exists=True, path_type=Path, file_okay=False),
               help="Destination for the html files.")
-@click.option("--comments", envvar="CHOPPER_COMMENTS", type=click.Choice(["php", "html", "antlers", "twig"]),
-              help="Opening and closing comments to wrap comments in.")
+@click.option("--comments", envvar="CHOPPER_COMMENTS",
+              default=CommentType.NONE,
+              type=click.Choice(CommentType),
+              help="What comments to use for the chopped files. Default is none.")
 @click.option("--warn/--overwrite", "-w/-o", envvar="CHOPPER_WARN", default=True,
               help=("On initial run, warn when the file contents differs instead of overwriting it. "
                     "Note that while watching, overwrite is always true."))
@@ -80,7 +84,7 @@ def main(
     script_dir: str,
     style_dir: str,
     html_dir: str,
-    comments: str | None,
+    comments: CommentType,
     warn: bool,
     dry_run: bool,
     watch: bool,
@@ -132,29 +136,31 @@ def main(
         "chop": html_dir or "",
     }
 
-    if not comments:
-        comments = "none"
+    # if not comments:
+    #     comments = "none"
 
-    chop_comment_type = {
-        'php': Comment("/* ", " */"),
-        'html': Comment("<!-- ", " -->"),
-        'antlers': Comment("{{# ", " #}}"),
-        'twig': Comment("{# ", " #}"),
-        'none': Comment("", ""),
-    }
-    comment_types = {
-        "script": Comment("// ", ""),
-        "style": Comment("/* ", " */"),
-        # 'chop': Comment('<!-- ', ' -->'),
-        "chop": chop_comment_type[comments],
-    }
-    use_comments = True
-    if comments == 'none':
-        use_comments = False
+    # chop_comment_type = {
+    #     'php': Comment("/* ", " */"),
+    #     'html': Comment("<!-- ", " -->"),
+    #     'antlers': Comment("{{# ", " #}}"),
+    #     'twig': Comment("{# ", " #}"),
+    #     'js': Comment("/* ", " */"),
+    #     'css': Comment("/* ", " */"),
+    #     'none': Comment("", ""),
+    # }
+    # comment_types = {
+    #     "script": Comment("// ", ""),
+    #     "style": Comment("/* ", " */"),
+    #     # 'chop': Comment('<!-- ', ' -->'),
+    #     "chop": chop_comment_type[comments],
+    # }
+    # use_comments = True
+    # if comments == 'none':
+    #     use_comments = False
 
     success: bool = True
     for source_file in chopper_files:
-        if not chop(source_file, types, use_comments, comment_types, warn=warn):
+        if not chop(source_file, types, comments, warn=warn):
             success = False
 
     if not success:
@@ -162,7 +168,7 @@ def main(
         sys.exit(1)
 
     if watch:
-        event_handler = ChopEventHandler(types, use_comments, comment_types, warn=False)
+        event_handler = ChopEventHandler(types, comments, warn=False)
         observer = Observer()
         observer.schedule(event_handler, path=source, recursive=True)
         observer.start()

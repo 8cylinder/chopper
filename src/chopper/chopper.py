@@ -12,7 +12,6 @@ from pprint import pprint as pp  # noqa: F401
 from textwrap import dedent
 from typing import Any, NamedTuple, TextIO  # from typing_extensions import TextIO
 import click
-from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from dotenv import load_dotenv
 
 
@@ -29,10 +28,10 @@ def find_file_upwards(start_dir: Path, target_files: list[str]) -> Path | None:
 
 
 chopper_confs = [
-    '.chopper',
-    'chopper.conf',
-    '.env.chopper',
-    '.env',
+    ".chopper",
+    "chopper.conf",
+    ".env.chopper",
+    ".env",
 ]
 if dot_env := find_file_upwards(Path.cwd(), chopper_confs):
     if load_dotenv(dot_env):
@@ -76,6 +75,32 @@ class Comment(NamedTuple):
     close: str
 
 
+class CommentType(Enum):
+    SERVER = "server"
+    CLIENT = "client"
+    NONE = "none"
+
+
+comment_cs_styles = {
+    "php": Comment("<!-- ", " -->"),
+    "html": Comment("<!-- ", " -->"),
+    "antlers": Comment("<!-- ", " -->"),
+    "twig": Comment("<!-- ", " -->"),
+    "js": Comment("// ", ""),
+    "css": Comment("/* ", " */"),
+    "none": Comment("", ""),
+}
+comment_ss_styles = {
+    "php": Comment("/* ", " */"),
+    "html": Comment("{# ", " #}"),
+    "antlers": Comment("{{# ", " #}}"),
+    "twig": Comment("{# ", " #}"),
+    "js": Comment("// ", ""),
+    "css": Comment("/* ", " */"),
+    "none": Comment("", ""),
+}
+
+
 def print_action(
     action: Action,
     filename: str | Path,
@@ -114,6 +139,7 @@ def show_warning(msg: str) -> None:
 @dataclass
 class ParsedData:
     path: str
+    file_type: str
     base_path: str
     source_file: str
     tag: str
@@ -152,6 +178,7 @@ class ChopperParser(HTMLParser):
                 self.parsed_data.append(
                     ParsedData(
                         path=self.path,
+                        file_type=os.path.splitext(self.path)[1][1:],
                         base_path="",
                         source_file="",
                         tag=tag,
@@ -192,8 +219,7 @@ def find_chopper_files(source: Path) -> list[str]:
 def chop(
     source: str,
     types: dict[str, str],
-    insert_comments: bool,
-    comments: dict[str, Comment],
+    comments: CommentType,
     warn: bool = False,
 ) -> bool:
     """Chop up the source file into the blocks defined by the chopper tags."""
@@ -217,18 +243,30 @@ def chop(
 
     for i, block in enumerate(data):
         block.base_path = types[block.tag]
+        # block.file_type = ""
         # block.base_path = root
         if "{" in block.path:
             show_warning(f'Magic vars no longer work: "{block.path}".')
         block.content = extract_block(block.start, block.end, source_html_split)
         block.source_file = source
 
-        comment = comments[block.tag]
-        block.comment_open, block.comment_close = comment
-        if insert_comments and block.path:
+        if comments == CommentType.CLIENT and block.path:
+            comment_style = comment_cs_styles[block.file_type]
+
             dest = Path(os.path.join(block.base_path, block.path))
-            comment_line = f"{comment.open}{source} -> {dest}{comment.close}"
+            comment_line = (
+                f"{comment_style.open}{source} -> {dest}{comment_style.close}"
+            )
             block.content = f"\n{comment_line}\n\n{block.content}"
+
+        # print(block.content)
+
+        # comment = comments[block.tag]
+        # block.comment_open, block.comment_close = comment
+        # if insert_comments and block.path:
+        #     dest = Path(os.path.join(block.base_path, block.path))
+        #     comment_line = f"{comment.open}{source} -> {dest}{comment.close}"
+        #     block.content = f"\n{comment_line}\n\n{block.content}"
 
         last = False if block_count != i else True
         if not new_or_overwrite_file(block, log, warn, last):
@@ -362,26 +400,40 @@ def remove_common_path(a: Path, b: Path, prefix: str = "") -> tuple[Path, Path]:
 
 
 def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
+    a_split = a.splitlines()
+    b_split = b.splitlines()
+    # a_split = [i.strip() for i in a.splitlines()]
+    # b_split = [i.strip() for i in b.splitlines()]
     context = 3
     diff = difflib.unified_diff(
-        a.splitlines(), b.splitlines(), tofile=fname_a, fromfile=fname_b, n=context
+        a_split, b_split, tofile=fname_a, fromfile=fname_b, n=context
     )
-    prefix = "         ┆ "
+    # prefix = "         ┆ "
+    prefix = click.style("         │ ", fg="yellow")
     click.echo(prefix)
     for i, line in enumerate(diff):
+        # header
         if line.startswith("+++"):
             click.echo(prefix + click.style(line, fg="bright_green"), nl=False)
         elif line.startswith("---"):
             click.echo(prefix + click.style(line, fg="bright_red"), nl=False)
         elif line.startswith("@@"):
             click.echo(
-                prefix + click.style(line, fg="bright_white", bold=True, underline=True),
+                prefix
+                + click.style(line, fg="bright_white", bold=True, underline=True),
                 nl=False,
             )
+        # diff
         elif line.startswith("+"):
-            click.echo(prefix + click.style(line, fg="bright_green"), nl=True)
+            click.echo(
+                prefix + click.style(line, fg="bright_green"),
+                nl=True,
+            )
         elif line.startswith("-"):
-            click.echo(prefix + click.style(line, fg="bright_red"), nl=True)
+            click.echo(
+                prefix + click.style(line, fg="bright_red"),
+                nl=True,
+            )
         else:
             click.echo(prefix + click.style(line, fg="bright_black"))
     click.echo(prefix)
