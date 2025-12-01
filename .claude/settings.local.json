@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv add:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(uv run chopper:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

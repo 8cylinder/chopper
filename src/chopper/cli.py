@@ -74,6 +74,8 @@ CONTEXT_SETTINGS = {
                     "Note that while watching, overwrite is always true."))
 @click.option("--watch/--no-watch", envvar="CHOPPER_WATCH", default=False,
               help="Watch the source directory for changes and re-chop the files.")
+@click.option("--update", is_flag=True,
+              help="Interactively update chopper files with destination changes. Requires --warn.")
 @click.option("--debug", is_flag=True, help="Print debug information.")
 @click.version_option(__version__)
 # fmt: on
@@ -85,6 +87,7 @@ def main(
     comments: CommentType,
     warn: bool,
     watch: bool,
+    update: bool,
     debug: bool,
 ) -> None:
     """Chop files into their separate types, style, script and html.
@@ -102,6 +105,7 @@ def main(
     CHOPPER_COMMENTS
     CHOPPER_WARN
     CHOPPER_WATCH
+    CHOPPER_INDENT
     """
 
     if debug:
@@ -115,6 +119,15 @@ def main(
             if key.startswith("CHOPPER_"):
                 print(f'{key:20}{value}')
         print()
+
+    # Validate flag combinations
+    if update and not warn:
+        click.echo("Error: --update requires --warn flag", err=True)
+        sys.exit(1)
+
+    if update and watch:
+        click.echo("Error: --update cannot be used with --watch", err=True)
+        sys.exit(1)
 
     if os.path.exists(source):
         if os.path.isdir(source):
@@ -155,7 +168,7 @@ def main(
 
     success: bool = True
     for source_file in chopper_files:
-        if not chop(source_file, types, comments, warn=warn):
+        if not chop(source_file, types, comments, warn=warn, update=update):
             success = False
 
     if not success:

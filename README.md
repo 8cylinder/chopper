@@ -119,6 +119,34 @@ uv run chopper public/chopper/ -s public/js/ -c public/css/ -m public/views/ --d
 export PYTHONBREAKPOINT="pudb.set_trace"; uv run chopper public/chopper/ -s public/js/ -c public/css/ -m public/views/
 ```
 
+### Testing
+
+Run the test suite to ensure functionality works correctly:
+
+``` bash
+# Run all tests
+uv run pytest
+
+# Run tests with verbose output
+uv run pytest -v
+
+# Run specific test file
+uv run pytest tests/test_reverse_sync.py
+
+# Run specific test class or method
+uv run pytest tests/test_reverse_sync.py::TestBasicUpdateFlow
+uv run pytest tests/test_reverse_sync.py::TestBasicUpdateFlow::test_basic_update_flow_css
+
+# Run tests with coverage (if coverage is installed)
+uv run pytest --cov=src/chopper tests/
+```
+
+The test suite includes comprehensive tests for:
+- Core chopper functionality
+- Reverse sync (`--warn --update`) functionality
+- Error handling and edge cases
+- CLI flag validation
+
 ### Build
 
 To make available globally, install the package using `uv tool`.

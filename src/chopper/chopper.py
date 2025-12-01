@@ -38,7 +38,10 @@ def validate_output_path(file_path: str, base_path: str) -> tuple[bool, str]:
             requested_path.relative_to(base_resolved)
             return True, ""
         except ValueError:
-            return False, f"Path '{file_path}' attempts to write outside allowed directory"
+            return (
+                False,
+                f"Path '{file_path}' attempts to write outside allowed directory",
+            )
 
     except (ValueError, OSError) as e:
         return False, f"Invalid path '{file_path}': {e}"
@@ -262,11 +265,68 @@ def find_chopper_files(source: Path) -> list[str]:
     return chopper_files
 
 
+def update_chopper_section(
+    source_file: Path, block: ParsedData, new_content: str
+) -> bool:
+    """Update specific section in chopper file using parser position data.
+
+    Args:
+        source_file: Path to the .chopper.html file
+        block: ParsedData object with position information
+        new_content: New content to insert (from destination file)
+
+    Returns:
+        bool: True if update successful, False if error
+    """
+    try:
+        original_content = source_file.read_text()
+        lines = original_content.splitlines(keepends=True)
+
+        # Use parser positions to identify content boundaries
+        # ChopperParser returns 1-based line numbers, convert to 0-based
+        start_line = block.start[0] - 1
+        end_line = block.end[0] - 1
+
+        # Replace content between tags, preserve tag structure
+        # The start position is at the end of the opening tag
+        # The end position is at the start of the closing tag
+        before_section = lines[: start_line + 1]  # Include opening tag line
+        after_section = lines[end_line:]  # Include closing tag line
+
+        # Get indentation from environment variable, default to two spaces
+        indent = os.environ.get("CHOPPER_INDENT", "  ")
+        if not indent:  # Handle empty string case
+            indent = "  "
+
+        # Insert new content with proper formatting and indentation
+        content_lines = new_content.rstrip().splitlines()
+        new_content_lines = []
+
+        for line in content_lines:
+            if line.strip():  # Only indent non-empty lines
+                new_content_lines.append(f"{indent}{line}\n")
+            else:
+                new_content_lines.append("\n")  # Preserve empty lines without indentation
+
+        # Reconstruct file
+        updated_lines = before_section + new_content_lines + after_section
+        source_file.write_text("".join(updated_lines))
+
+        return True
+
+    except Exception as e:
+        import click
+
+        click.echo(f"Error updating {source_file}: {e}", err=True)
+        return False
+
+
 def chop(
     source: str,
     types: dict[str, str],
     comments: CommentType,
     warn: bool = False,
+    update: bool = False,
 ) -> bool:
     """Chop up the source file into the blocks defined by the chopper tags."""
     print_action(Action.CHOP, source)
@@ -324,7 +384,7 @@ def chop(
         #     block.content = f"\n{comment_line}\n\n{block.content}"
 
         last = False if block_count != i else True
-        if not new_or_overwrite_file(block, log, warn, last):
+        if not new_or_overwrite_file(block, log, warn, update, last):
             success = False
 
     return success
@@ -358,7 +418,11 @@ def extract_block(
 
 
 def new_or_overwrite_file(
-    block: ParsedData, log: ChopperLog, warn: bool = False, last: bool = False
+    block: ParsedData,
+    log: ChopperLog,
+    warn: bool = False,
+    update: bool = False,
+    last: bool = False,
 ) -> bool:
     """Create or update the file specified in the chopper:file attribute."""
     content = block.content
@@ -390,12 +454,12 @@ def new_or_overwrite_file(
         elif partial_file.exists():
             with open(partial_file, "r+") as f:
                 success = write_to_file(
-                    block, content, f, last, partial_file, warn, False
+                    block, content, f, last, partial_file, warn, update, False
                 )
         else:
             with open(partial_file, "w") as f:
                 success = write_to_file(
-                    block, content, f, last, partial_file, False, True
+                    block, content, f, last, partial_file, False, update, True
                 )
     except IsADirectoryError:
         show_error(Action.CHOP, block.source_file, "Destination is a dir.")
@@ -414,6 +478,7 @@ def write_to_file(
     last: bool,
     partial: Path,
     warn: bool,
+    update: bool,
     newfile: bool,
 ) -> bool:
     """Write the content to the file if it differs from the current contents.
@@ -433,7 +498,32 @@ def write_to_file(
             b = Path(block.source_file).absolute()
             a, b = remove_common_path(a, b, prefix="…")
             show_diff(content, current_contents, str(a), str(b))
-            success = False
+
+            # Add update prompt if --update flag used
+            if update:
+                import click
+
+                choice = click.prompt(
+                    "Update chopper file?",
+                    type=click.Choice(["y", "n", "c"], case_sensitive=False),
+                )
+
+                if choice == "y":
+                    # Update the chopper file with destination content
+                    if update_chopper_section(
+                        Path(block.source_file), block, current_contents
+                    ):
+                        success = True  # Consider this a success
+                    else:
+                        success = False  # Update failed
+                elif choice == "c":
+                    # Cancel entire operation
+                    click.echo("Operation cancelled")
+                    sys.exit(0)
+                # 'n' continues with warn behavior (success = False)
+
+            if not update or (update and choice == "n"):
+                success = False
         else:
             if newfile:
                 print_action(Action.NEW, partial, last=last)
