@@ -74,7 +74,6 @@ def find_file_upwards(
 # Config loading moved to after function definitions
 
 
-DRYRUN = False
 CHOPPER_NAME = ".chopper.html"
 
 
@@ -138,11 +137,9 @@ comment_ss_styles = {
 def print_action(
     action: Action,
     filename: str | Path,
-    dry_run: bool = False,
     last: bool = False,
 ) -> None:
     """Output information about the action taken by chopper."""
-    dry = " (DRY RUN)" if dry_run else ""
     choppa = click.style("CHOPPER:", fg="magenta", bold=True)
     task = click.style(action.value, fg="bright_green")
     filename = click.style(str(filename), fg="bright_blue")
@@ -156,8 +153,7 @@ def print_action(
     click.echo(f"{choppa} {tree}{task}  {filename}  {date}")
 
 
-def show_error(action: Action, filename: str, msg: str, dry_run: bool = False) -> None:
-    dry = " (DRY RUN)" if dry_run else ""
+def show_error(action: Action, filename: str, msg: str) -> None:
     choppa = click.style("CHOPPER:", bg="red", bold=True)
     action_pretty = click.style(action.value, bg="red", bold=True)
     filename = click.style(filename, fg="bright_blue")
@@ -381,8 +377,7 @@ def new_or_overwrite_file(
     partial_file = Path(os.path.join(block.base_path, block.path))
 
     if not partial_file.parent.exists():
-        if not DRYRUN:
-            partial_file.parent.mkdir(parents=True, exist_ok=True)
+        partial_file.parent.mkdir(parents=True, exist_ok=True)
         print_action(Action.DIR, partial_file.parent)
         log.chopped.append(Chopped(Action.DIR, partial_file.parent))
 
@@ -444,10 +439,9 @@ def write_to_file(
                 print_action(Action.NEW, partial, last=last)
             else:
                 print_action(Action.WRITE, partial, last=last)
-            if not DRYRUN:
-                f.seek(0)
-                f.write(content)
-                f.truncate()
+            f.seek(0)
+            f.write(content)
+            f.truncate()
     else:
         print_action(Action.UNCHANGED, partial, last=last)
 

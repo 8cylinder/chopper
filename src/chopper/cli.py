@@ -72,8 +72,6 @@ CONTEXT_SETTINGS = {
 @click.option("--warn/--overwrite", "-w/-o", envvar="CHOPPER_WARN", default=True,
               help=("On initial run, warn when the file contents differs instead of overwriting it. "
                     "Note that while watching, overwrite is always true."))
-@click.option("--dry-run", is_flag=True,
-              help="Do not write any file to the filesystem.")
 @click.option("--watch/--no-watch", envvar="CHOPPER_WATCH", default=False,
               help="Watch the source directory for changes and re-chop the files.")
 @click.option("--debug", is_flag=True, help="Print debug information.")
@@ -86,7 +84,6 @@ def main(
     html_dir: str,
     comments: CommentType,
     warn: bool,
-    dry_run: bool,
     watch: bool,
     debug: bool,
 ) -> None:
@@ -119,8 +116,6 @@ def main(
                 print(f'{key:20}{value}')
         print()
 
-    # global DRYRUN
-    # DRYRUN = dry_run
     if os.path.exists(source):
         if os.path.isdir(source):
             chopper_files = find_chopper_files(Path(source))
