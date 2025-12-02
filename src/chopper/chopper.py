@@ -30,7 +30,7 @@ def validate_output_path(file_path: str, base_path: str) -> tuple[bool, str]:
 
     try:
         # Normalize path separators to handle both Unix and Windows styles
-        normalized_path = file_path.replace('\\', '/')
+        normalized_path = file_path.replace("\\", "/")
 
         # Resolve the paths to handle '..' and '.' components
         base_resolved = Path(base_path).resolve()
@@ -309,7 +309,9 @@ def update_chopper_section(
             if line.strip():  # Only indent non-empty lines
                 new_content_lines.append(f"{indent}{line}\n")
             else:
-                new_content_lines.append("\n")  # Preserve empty lines without indentation
+                new_content_lines.append(
+                    "\n"
+                )  # Preserve empty lines without indentation
 
         # Reconstruct file
         updated_lines = before_section + new_content_lines + after_section

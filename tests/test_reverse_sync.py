@@ -56,7 +56,7 @@ class TestReverseSyncFunctionality:
 
     def create_basic_chopper_file(self) -> Path:
         """Create a basic chopper file for testing."""
-        content = '''<style chopper:file="components/hero.css">
+        content = """<style chopper:file="components/hero.css">
 .hero {
     background: blue;
     padding: 2rem;
@@ -75,7 +75,7 @@ document.addEventListener("DOMContentLoaded", function() {
     <h1>Welcome</h1>
     <p>Hero section content</p>
 </div>
-</chop>'''
+</chop>"""
         return self.create_test_chopper_file("hero.chopper.html", content)
 
     def get_types_dict(self) -> Dict[str, str]:
@@ -86,7 +86,9 @@ document.addEventListener("DOMContentLoaded", function() {
             "chop": str(self.html_dir),
         }
 
-    def run_chopper_command(self, chopper_file: Path, warn: bool = False, update: bool = False) -> bool:
+    def run_chopper_command(
+        self, chopper_file: Path, warn: bool = False, update: bool = False
+    ) -> bool:
         """
         Helper to run chopper command programmatically.
 
@@ -100,11 +102,7 @@ document.addEventListener("DOMContentLoaded", function() {
         """
         types = self.get_types_dict()
         return chop(
-            str(chopper_file),
-            types,
-            CommentType.NONE,
-            warn=warn,
-            update=update
+            str(chopper_file), types, CommentType.NONE, warn=warn, update=update
         )
 
     def modify_destination_file(self, relative_path: str, new_content: str) -> Path:
@@ -118,9 +116,9 @@ document.addEventListener("DOMContentLoaded", function() {
         Returns:
             Path: The modified file path
         """
-        if relative_path.endswith('.css'):
+        if relative_path.endswith(".css"):
             full_path = self.css_dir / relative_path
-        elif relative_path.endswith('.js'):
+        elif relative_path.endswith(".js"):
             full_path = self.js_dir / relative_path
         else:
             full_path = self.html_dir / relative_path
@@ -148,15 +146,15 @@ class TestBasicUpdateFlow(TestReverseSyncFunctionality):
         assert css_file.exists(), "CSS file should be created"
 
         # Modify the CSS file
-        modified_css = '''.hero {
+        modified_css = """.hero {
     background: red;
     padding: 3rem;
     border: 1px solid black;
-}'''
+}"""
         css_file.write_text(modified_css)
 
         # Mock user input to accept the update
-        with patch('click.prompt', return_value='y'):
+        with patch("click.prompt", return_value="y"):
             # Run chopper in warn+update mode
             success = self.run_chopper_command(chopper_file, warn=True, update=True)
             # Note: This should return False because warn mode found differences
@@ -164,9 +162,15 @@ class TestBasicUpdateFlow(TestReverseSyncFunctionality):
 
         # Verify chopper file was updated
         updated_content = chopper_file.read_text()
-        assert "background: red" in updated_content, "Chopper file should contain updated CSS"
-        assert "padding: 3rem" in updated_content, "Chopper file should contain updated padding"
-        assert "border: 1px solid black" in updated_content, "Chopper file should contain new border"
+        assert "background: red" in updated_content, (
+            "Chopper file should contain updated CSS"
+        )
+        assert "padding: 3rem" in updated_content, (
+            "Chopper file should contain updated padding"
+        )
+        assert "border: 1px solid black" in updated_content, (
+            "Chopper file should contain new border"
+        )
 
     def test_basic_update_flow_js(self):
         """Test basic --warn --update with JavaScript changes."""
@@ -177,7 +181,7 @@ class TestBasicUpdateFlow(TestReverseSyncFunctionality):
 
         # Modify the JS file
         js_file = self.js_dir / "components" / "hero.js"
-        modified_js = '''console.log("Hero component loaded - UPDATED");
+        modified_js = """console.log("Hero component loaded - UPDATED");
 document.addEventListener("DOMContentLoaded", function() {
     console.log("DOM ready - with additional logging");
     initHeroAnimations();
@@ -185,11 +189,11 @@ document.addEventListener("DOMContentLoaded", function() {
 
 function initHeroAnimations() {
     console.log("Initializing hero animations");
-}'''
+}"""
         js_file.write_text(modified_js)
 
         # Mock user input to accept update
-        with patch('click.prompt', return_value='y'):
+        with patch("click.prompt", return_value="y"):
             self.run_chopper_command(chopper_file, warn=True, update=True)
 
         # Verify chopper file was updated
@@ -207,15 +211,15 @@ function initHeroAnimations() {
 
         # Modify the HTML file
         html_file = self.html_dir / "components" / "hero.html"
-        modified_html = '''<div class="hero hero--enhanced">
+        modified_html = """<div class="hero hero--enhanced">
     <h1>Welcome to Our Site</h1>
     <p>Hero section content with more details</p>
     <button class="cta-button">Get Started</button>
-</div>'''
+</div>"""
         html_file.write_text(modified_html)
 
         # Mock user input to accept update
-        with patch('click.prompt', return_value='y'):
+        with patch("click.prompt", return_value="y"):
             self.run_chopper_command(chopper_file, warn=True, update=True)
 
         # Verify chopper file was updated
@@ -239,7 +243,7 @@ class TestUserDecisions(TestReverseSyncFunctionality):
         css_file.write_text(".hero { background: green; }")
 
         # Mock user input to decline update
-        with patch('click.prompt', return_value='n'):
+        with patch("click.prompt", return_value="n"):
             success = self.run_chopper_command(chopper_file, warn=True, update=True)
             assert not success, "Should return False when files differ"
 
@@ -262,7 +266,7 @@ class TestUserDecisions(TestReverseSyncFunctionality):
         js_file.write_text("console.log('CANCELLED TEST');")
 
         # Mock user input to cancel on first prompt
-        with patch('click.prompt', return_value='c'):
+        with patch("click.prompt", return_value="c"):
             with pytest.raises(SystemExit):  # Should exit when cancelled
                 self.run_chopper_command(chopper_file, warn=True, update=True)
 
@@ -288,7 +292,7 @@ class TestMultipleSections(TestReverseSyncFunctionality):
         css_file.write_text(".hero { background: purple; margin: 1rem; }")
 
         # Mock user input to accept update
-        with patch('click.prompt', return_value='y'):
+        with patch("click.prompt", return_value="y"):
             self.run_chopper_command(chopper_file, warn=True, update=True)
 
         updated_content = chopper_file.read_text()
@@ -298,7 +302,7 @@ class TestMultipleSections(TestReverseSyncFunctionality):
         assert "margin: 1rem" in updated_content
 
         # JS and HTML sections should be unchanged
-        assert "console.log(\"Hero component loaded\");" in updated_content
+        assert 'console.log("Hero component loaded");' in updated_content
         assert "<h1>Welcome</h1>" in updated_content
 
     def test_update_multiple_sections_sequentially(self):
@@ -316,7 +320,7 @@ class TestMultipleSections(TestReverseSyncFunctionality):
         js_file.write_text("console.log('MULTIPLE SECTIONS TEST');")
 
         # Mock user input: yes for CSS, no for JS
-        with patch('click.prompt', side_effect=['y', 'n']):
+        with patch("click.prompt", side_effect=["y", "n"]):
             self.run_chopper_command(chopper_file, warn=True, update=True)
 
         updated_content = chopper_file.read_text()
@@ -325,7 +329,7 @@ class TestMultipleSections(TestReverseSyncFunctionality):
         assert "background: orange" in updated_content
 
         # JS should NOT be updated (still original)
-        assert "console.log(\"Hero component loaded\");" in updated_content
+        assert 'console.log("Hero component loaded");' in updated_content
         assert "MULTIPLE SECTIONS TEST" not in updated_content
 
 
@@ -334,7 +338,7 @@ class TestPositionBasedReplacement(TestReverseSyncFunctionality):
 
     def test_complex_nested_structure(self):
         """Test precise replacement in complex nested HTML structure."""
-        complex_content = '''<!DOCTYPE html>
+        complex_content = """<!DOCTYPE html>
 <html>
 <head>
     <style chopper:file="complex.css">
@@ -369,16 +373,18 @@ class TestPositionBasedReplacement(TestReverseSyncFunctionality):
     }
     </style>
 </body>
-</html>'''
+</html>"""
 
-        chopper_file = self.create_test_chopper_file("complex.chopper.html", complex_content)
+        chopper_file = self.create_test_chopper_file(
+            "complex.chopper.html", complex_content
+        )
 
         # Generate files
         self.run_chopper_command(chopper_file, warn=False, update=False)
 
         # Modify only the header CSS (first style section)
         css_file = self.css_dir / "complex.css"
-        css_file.write_text('''.header {
+        css_file.write_text(""".header {
     background: lightblue;
     padding: 2rem;
     border-radius: 5px;
@@ -386,10 +392,10 @@ class TestPositionBasedReplacement(TestReverseSyncFunctionality):
 .nav {
     display: grid;
     gap: 1rem;
-}''')
+}""")
 
         # Mock user input to accept update
-        with patch('click.prompt', return_value='y'):
+        with patch("click.prompt", return_value="y"):
             self.run_chopper_command(chopper_file, warn=True, update=True)
 
         updated_content = chopper_file.read_text()
@@ -408,7 +414,7 @@ class TestPositionBasedReplacement(TestReverseSyncFunctionality):
 
     def test_preserve_html_structure_and_attributes(self):
         """Test that HTML tag attributes and structure are preserved."""
-        content_with_attrs = '''<style chopper:file="styled.css" data-test="css-section" id="main-styles">
+        content_with_attrs = """<style chopper:file="styled.css" data-test="css-section" id="main-styles">
 .test {
     color: blue;
 }
@@ -416,19 +422,21 @@ class TestPositionBasedReplacement(TestReverseSyncFunctionality):
 
 <script chopper:file="scripted.js" type="module" data-test="js-section">
 console.log("test");
-</script>'''
+</script>"""
 
-        chopper_file = self.create_test_chopper_file("attrs.chopper.html", content_with_attrs)
+        chopper_file = self.create_test_chopper_file(
+            "attrs.chopper.html", content_with_attrs
+        )
 
         # Generate files
         self.run_chopper_command(chopper_file, warn=False, update=False)
 
         # Modify CSS
         css_file = self.css_dir / "styled.css"
-        css_file.write_text('.test {\n    color: red;\n    font-size: 16px;\n}')
+        css_file.write_text(".test {\n    color: red;\n    font-size: 16px;\n}")
 
         # Mock user input
-        with patch('click.prompt', return_value='y'):
+        with patch("click.prompt", return_value="y"):
             self.run_chopper_command(chopper_file, warn=True, update=True)
 
         updated_content = chopper_file.read_text()
@@ -451,28 +459,30 @@ console.log("test");
 class TestErrorHandling(TestReverseSyncFunctionality):
     """Test error handling scenarios."""
 
+    @pytest.mark.skip(reason="TODO: Implement after core functionality")
     def test_missing_destination_files(self):
         """Test handling when destination files don't exist."""
-        # TODO: Implement after core functionality
         pass
 
+    @pytest.mark.skip(reason="TODO: Implement after core functionality")
     def test_permission_errors(self):
         """Test handling file permission errors."""
-        # TODO: Implement after core functionality
         pass
 
 
 class TestCLIIntegration(TestReverseSyncFunctionality):
     """Test CLI flag integration."""
 
+    @pytest.mark.skip(
+        reason="TODO: Implement CLI-level testing after core functionality"
+    )
     def test_update_requires_warn_flag(self):
         """Test that --update requires --warn flag."""
-        # TODO: Implement CLI-level testing after core functionality
         pass
 
+    @pytest.mark.skip(reason="TODO: Implement after core functionality")
     def test_update_conflicts_with_watch(self):
         """Test that --update cannot be used with --watch."""
-        # TODO: Implement after core functionality
         pass
 
 
