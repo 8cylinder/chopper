@@ -1332,13 +1332,19 @@ console.log("unclosed style above");
         self.css_dir.chmod(stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)  # Read-only
 
         try:
-            # Should raise PermissionError when trying to access readonly directory
-            with pytest.raises(PermissionError):
-                self.run_chopper(chopper_file)
+            # Should handle PermissionError gracefully and return False
+            success = self.run_chopper(chopper_file)
+            assert success is False, "Should fail when directory is read-only"
 
         finally:
             # Restore original permissions for cleanup
             self.css_dir.chmod(original_mode)
+
+            # Verify the CSS file was NOT created (check after restoring permissions)
+            css_file = self.css_dir / "readonly_test.css"
+            assert not css_file.exists(), (
+                "File should not be created in read-only directory"
+            )
 
     def test_very_large_content(self):
         """Test handling of large content sections."""

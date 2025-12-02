@@ -36,11 +36,11 @@ class ChopEventHandler(FileSystemEventHandler):
         self.warn = warn
 
     def on_any_event(self, event: FileSystemEvent) -> None:
-        path = str(event.src_path)
-        is_chopper_file = os.path.isfile(path) and path.endswith(CHOPPER_NAME)
+        path = Path(str(event.src_path))
+        is_chopper_file = path.is_file() and path.name.endswith(CHOPPER_NAME)
 
         if is_chopper_file and event.event_type == "modified":
-            self.chop_file(path)
+            self.chop_file(str(path))
 
     def chop_file(self, path: str) -> bool:
         result = chop(path, self.types, self.comments, warn=self.warn)
@@ -129,13 +129,14 @@ def main(
         click.echo("Error: --update cannot be used with --watch", err=True)
         sys.exit(1)
 
-    if os.path.exists(source):
-        if os.path.isdir(source):
-            chopper_files = find_chopper_files(Path(source))
+    source_path = Path(source)
+    if source_path.exists():
+        if source_path.is_dir():
+            chopper_files = find_chopper_files(source_path)
         else:
-            chopper_files = [source]
+            chopper_files = [str(source_path)]
     else:
-        show_error(Action.CHOP, source, "No such file or directory:")
+        show_error(Action.CHOP, str(source_path), "No such file or directory:")
         sys.exit(1)
 
     types = {
@@ -143,28 +144,6 @@ def main(
         "style": style_dir or "",
         "chop": html_dir or "",
     }
-
-    # if not comments:
-    #     comments = "none"
-
-    # chop_comment_type = {
-    #     'php': Comment("/* ", " */"),
-    #     'html': Comment("<!-- ", " -->"),
-    #     'antlers': Comment("{{# ", " #}}"),
-    #     'twig': Comment("{# ", " #}"),
-    #     'js': Comment("/* ", " */"),
-    #     'css': Comment("/* ", " */"),
-    #     'none': Comment("", ""),
-    # }
-    # comment_types = {
-    #     "script": Comment("// ", ""),
-    #     "style": Comment("/* ", " */"),
-    #     # 'chop': Comment('<!-- ', ' -->'),
-    #     "chop": chop_comment_type[comments],
-    # }
-    # use_comments = True
-    # if comments == 'none':
-    #     use_comments = False
 
     success: bool = True
     for source_file in chopper_files:

@@ -3,7 +3,9 @@
     "allow": [
       "Bash(uv add:*)",
       "Bash(uv run pytest:*)",
-      "Bash(uv run chopper:*)"
+      "Bash(uv run chopper:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(uv run mypy:*)"
     ],
     "deny": [],
     "ask": []

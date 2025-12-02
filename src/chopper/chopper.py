@@ -8,11 +8,22 @@ from datetime import datetime
 from enum import Enum
 from html.parser import HTMLParser
 from pathlib import Path
-from pprint import pprint as pp  # noqa: F401
 from textwrap import dedent
 from typing import Any, NamedTuple, TextIO  # from typing_extensions import TextIO
 import click
 from dotenv import load_dotenv
+
+from .constants import (
+    CHOPPER_FILE_EXTENSION,
+    MAX_CONFIG_SEARCH_DEPTH,
+    CONFIG_FILE_NAMES,
+    Comment,
+    COMMENT_CLIENT_STYLES,
+    COMMENT_SERVER_STYLES,
+    TREE_BRANCH,
+    TREE_LAST,
+    TREE_PIPE,
+)
 
 
 def validate_output_path(file_path: str, base_path: str) -> tuple[bool, str]:
@@ -51,18 +62,23 @@ def validate_output_path(file_path: str, base_path: str) -> tuple[bool, str]:
 
 
 def find_file_upwards(
-    start_dir: Path, target_files: list[str], max_depth: int = 5
+    start_dir: Path,
+    target_files: list[str] | None = None,
+    max_depth: int = MAX_CONFIG_SEARCH_DEPTH,
 ) -> Path | None:
     """Find config file by searching upwards from current directory.
 
     Args:
         start_dir: Directory to start search from
-        target_files: List of filenames to search for
+        target_files: List of filenames to search for (defaults to CONFIG_FILE_NAMES)
         max_depth: Maximum number of directories to search upward
 
     Returns:
         Path to found config file, or None if not found
     """
+    if target_files is None:
+        target_files = CONFIG_FILE_NAMES
+
     current_dir = start_dir.resolve()
     depth = 0
 
@@ -78,9 +94,10 @@ def find_file_upwards(
 
 
 # Config loading moved to after function definitions
+# Constants now imported from constants.py
 
-
-CHOPPER_NAME = ".chopper.html"
+# Alias for backward compatibility
+CHOPPER_NAME = CHOPPER_FILE_EXTENSION
 
 
 class Action(Enum):
@@ -109,35 +126,15 @@ class ChopperLog(NamedTuple):
 # l.chopped.append(Chopped(Action.CHOP, "style.css", "diff"))
 
 
-class Comment(NamedTuple):
-    open: str
-    close: str
-
-
 class CommentType(Enum):
     SERVER = "server"
     CLIENT = "client"
     NONE = "none"
 
 
-comment_cs_styles = {
-    "php": Comment("<!-- ", " -->"),
-    "html": Comment("<!-- ", " -->"),
-    "antlers": Comment("<!-- ", " -->"),
-    "twig": Comment("<!-- ", " -->"),
-    "js": Comment("// ", ""),
-    "css": Comment("/* ", " */"),
-    "none": Comment("", ""),
-}
-comment_ss_styles = {
-    "php": Comment("/* ", " */"),
-    "html": Comment("{# ", " #}"),
-    "antlers": Comment("{{# ", " #}}"),
-    "twig": Comment("{# ", " #}"),
-    "js": Comment("// ", ""),
-    "css": Comment("/* ", " */"),
-    "none": Comment("", ""),
-}
+# Aliases for backward compatibility
+comment_cs_styles = COMMENT_CLIENT_STYLES
+comment_ss_styles = COMMENT_SERVER_STYLES
 
 
 def print_action(
@@ -203,11 +200,16 @@ class ParsedData:
 
 
 class ChopperParser(HTMLParser):
-    tags: list[str] = ["style", "script", "chop"]
-    tree: list[Any] = []
-    path: str = ""
-    parsed_data: list[ParsedData] = []
-    start: list[int] = [0, 0]
+    """HTML parser that extracts script, style, and chop sections."""
+
+    def __init__(self) -> None:
+        """Initialize parser with instance variables to avoid shared state."""
+        super().__init__()
+        self.tags: list[str] = ["style", "script", "chop"]
+        self.tree: list[Any] = []
+        self.path: str = ""
+        self.parsed_data: list[ParsedData] = []
+        self.start: list[int] = [0, 0]
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag in self.tags:
@@ -225,12 +227,15 @@ class ChopperParser(HTMLParser):
 
     def handle_endtag(self, tag: str) -> None:
         if tag in self.tags:
+            # Handle malformed HTML with unbalanced tags gracefully
+            if not self.tree:
+                return
             self.tree.pop()
             if not self.tree and self.path:
                 self.parsed_data.append(
                     ParsedData(
                         path=self.path,
-                        file_type=os.path.splitext(self.path)[1][1:],
+                        file_type=Path(self.path).suffix[1:] if self.path else "",
                         base_path="",
                         source_file="",
                         tag=tag,
@@ -246,24 +251,25 @@ class ChopperParser(HTMLParser):
 
 def find_chopper_files(source: Path) -> list[str]:
     """Find all the chopper files in the source directory."""
-    if not os.path.exists(source):
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), source)
+    if not source.exists():
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(source))
 
-    if not os.path.isdir(source):
-        raise NotADirectoryError(errno.ENOTDIR, os.strerror(errno.ENOTDIR), source)
+    if not source.is_dir():
+        raise NotADirectoryError(errno.ENOTDIR, os.strerror(errno.ENOTDIR), str(source))
 
     chopper_files = []
 
     for root, dirs, files in os.walk(source):
         for filename in files:
-            # print(filename, os.path.islink(filename))
-            try:
-                os.stat(Path(root, filename))
-                if not os.path.islink(filename) and filename.endswith(CHOPPER_NAME):
-                    chopper_files.append(os.path.join(root, filename))
-            except FileNotFoundError:
-                # ignore broken symlinks which are used by Emacs to store backup files
-                continue
+            if filename.endswith(CHOPPER_NAME):
+                full_path = Path(root, filename)
+                try:
+                    # Skip symlinks - they may be used by editors for backup files
+                    if not full_path.is_symlink():
+                        chopper_files.append(str(full_path))
+                except FileNotFoundError:
+                    # ignore broken symlinks which are used by Emacs to store backup files
+                    continue
 
     return chopper_files
 
@@ -344,7 +350,6 @@ def chop(
         return False
 
     parser = ChopperParser()
-    parser.parsed_data.clear()
     parser.feed(source_html)
     data = parser.parsed_data
 
@@ -373,20 +378,11 @@ def chop(
         if comments == CommentType.CLIENT and block.path:
             comment_style = comment_cs_styles[block.file_type]
 
-            dest = Path(os.path.join(block.base_path, block.path))
+            dest = Path(block.base_path) / block.path
             comment_line = (
                 f"{comment_style.open}{source} -> {dest}{comment_style.close}"
             )
             block.content = f"\n{comment_line}\n\n{block.content}"
-
-        # print(block.content)
-
-        # comment = comments[block.tag]
-        # block.comment_open, block.comment_close = comment
-        # if insert_comments and block.path:
-        #     dest = Path(os.path.join(block.base_path, block.path))
-        #     comment_line = f"{comment.open}{source} -> {dest}{comment.close}"
-        #     block.content = f"\n{comment_line}\n\n{block.content}"
 
         last = False if block_count != i else True
         if not new_or_overwrite_file(block, log, warn, update, last):
@@ -433,7 +429,9 @@ def new_or_overwrite_file(
     content = block.content
     if not block.path:
         print_action(Action.UNCHANGED, "No destination defined", last=False)
-        log.chopped.append(Chopped(Action.UNCHANGED, "No destination defined"))
+        log.chopped.append(
+            Chopped(Action.UNCHANGED, Path(""), msg="No destination defined")
+        )
         return True
 
     # SECURITY: Validate output path to prevent directory traversal (defense in depth)
@@ -443,37 +441,55 @@ def new_or_overwrite_file(
         log.chopped.append(Chopped(Action.MISSMATCH, Path(block.path), error_msg))
         return False
 
-    partial_file = Path(os.path.join(block.base_path, block.path))
+    partial_file = Path(block.base_path) / block.path
 
+    # Create parent directory if needed
     if not partial_file.parent.exists():
-        partial_file.parent.mkdir(parents=True, exist_ok=True)
-        print_action(Action.DIR, partial_file.parent)
-        log.chopped.append(Chopped(Action.DIR, partial_file.parent))
+        try:
+            partial_file.parent.mkdir(parents=True, exist_ok=True)
+            print_action(Action.DIR, partial_file.parent)
+            log.chopped.append(Chopped(Action.DIR, partial_file.parent))
+        except (OSError, PermissionError) as e:
+            show_error(
+                Action.DIR, str(partial_file.parent), f"Cannot create directory: {e}"
+            )
+            return False
 
-    success: bool = False
+    # Handle file operations with clear error handling
     try:
+        # Check if file should exist in warn mode
         if warn and not partial_file.exists():
             print_action(Action.DOES_NOT_EXIST, partial_file, last=last)
-            success = False
+            return False
 
-        elif partial_file.exists():
+        # Update existing file
+        if partial_file.exists():
             with open(partial_file, "r+") as f:
-                success = write_to_file(
+                return write_to_file(
                     block, content, f, last, partial_file, warn, update, False
                 )
+        # Create new file
         else:
             with open(partial_file, "w") as f:
-                success = write_to_file(
+                return write_to_file(
                     block, content, f, last, partial_file, False, update, True
                 )
     except IsADirectoryError:
-        show_error(Action.CHOP, block.source_file, "Destination is a dir.")
-        sys.exit(1)
-    except FileNotFoundError:
-        # show_error(Action.CHOP, block.source_file, "Destination does not exist.")
-        show_warning(f"Destination does not exist: {block.source_file}.")
-
-    return success
+        show_error(
+            Action.WRITE,
+            block.source_file,
+            f"Destination is a directory: {partial_file}",
+        )
+        return False
+    except PermissionError as e:
+        show_error(Action.WRITE, block.source_file, f"Permission denied: {e}")
+        return False
+    except FileNotFoundError as e:
+        show_error(Action.WRITE, block.source_file, f"File not found: {e}")
+        return False
+    except OSError as e:
+        show_error(Action.WRITE, block.source_file, f"OS error: {e}")
+        return False
 
 
 def write_to_file(
@@ -545,7 +561,7 @@ def write_to_file(
 
 def remove_common_path(a: Path, b: Path, prefix: str = "") -> tuple[Path, Path]:
     """Remove the common path from the two paths."""
-    common = Path(os.path.commonpath([a, b]))
+    common = Path(os.path.commonpath([str(a), str(b)]))
     a_parts = a.parts[len(common.parts) :]
     b_parts = b.parts[len(common.parts) :]
     a = Path(prefix, *a_parts)
