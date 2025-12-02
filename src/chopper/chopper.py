@@ -17,12 +17,8 @@ from .constants import (
     CHOPPER_FILE_EXTENSION,
     MAX_CONFIG_SEARCH_DEPTH,
     CONFIG_FILE_NAMES,
-    Comment,
     COMMENT_CLIENT_STYLES,
     COMMENT_SERVER_STYLES,
-    TREE_BRANCH,
-    TREE_LAST,
-    TREE_PIPE,
 )
 
 
@@ -287,49 +283,40 @@ def update_chopper_section(
     Returns:
         bool: True if update successful, False if error
     """
-    try:
-        original_content = source_file.read_text()
-        lines = original_content.splitlines(keepends=True)
+    original_content = source_file.read_text()
+    lines = original_content.splitlines(keepends=True)
 
-        # Use parser positions to identify content boundaries
-        # ChopperParser returns 1-based line numbers, convert to 0-based
-        start_line = block.start[0] - 1
-        end_line = block.end[0] - 1
+    # Use parser positions to identify content boundaries
+    # ChopperParser returns 1-based line numbers, convert to 0-based
+    start_line = block.start[0] - 1
+    end_line = block.end[0] - 1
 
-        # Replace content between tags, preserve tag structure
-        # The start position is at the end of the opening tag
-        # The end position is at the start of the closing tag
-        before_section = lines[: start_line + 1]  # Include opening tag line
-        after_section = lines[end_line:]  # Include closing tag line
+    # Replace content between tags, preserve tag structure
+    # The start position is at the end of the opening tag
+    # The end position is at the start of the closing tag
+    before_section = lines[: start_line + 1]  # Include opening tag line
+    after_section = lines[end_line:]  # Include closing tag line
 
-        # Get indentation from environment variable, default to two spaces
-        indent = os.environ.get("CHOPPER_INDENT", "  ")
-        if not indent:  # Handle empty string case
-            indent = "  "
+    # Get indentation from environment variable, default to two spaces
+    indent = os.environ.get("CHOPPER_INDENT", "  ")
+    if not indent:  # Handle empty string case
+        indent = "  "
 
-        # Insert new content with proper formatting and indentation
-        content_lines = new_content.rstrip().splitlines()
-        new_content_lines = []
+    # Insert new content with proper formatting and indentation
+    content_lines = new_content.rstrip().splitlines()
+    new_content_lines = []
 
-        for line in content_lines:
-            if line.strip():  # Only indent non-empty lines
-                new_content_lines.append(f"{indent}{line}\n")
-            else:
-                new_content_lines.append(
-                    "\n"
-                )  # Preserve empty lines without indentation
+    for line in content_lines:
+        if line.strip():  # Only indent non-empty lines
+            new_content_lines.append(f"{indent}{line}\n")
+        else:
+            new_content_lines.append("\n")  # Preserve empty lines without indentation
 
-        # Reconstruct file
-        updated_lines = before_section + new_content_lines + after_section
-        source_file.write_text("".join(updated_lines))
+    # Reconstruct file
+    updated_lines = before_section + new_content_lines + after_section
+    source_file.write_text("".join(updated_lines))
 
-        return True
-
-    except Exception as e:
-        import click
-
-        click.echo(f"Error updating {source_file}: {e}", err=True)
-        return False
+    return True
 
 
 def chop(
