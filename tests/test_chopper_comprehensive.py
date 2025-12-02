@@ -1826,6 +1826,230 @@ font-size: 16px;
             os.chdir(original_cwd)
 
 
+class TestParserInstanceIsolation(TestChopperBase):
+    """Test ChopperParser instance isolation (class-level mutable defaults fix)."""
+
+    def test_parser_instance_isolation(self):
+        """Test that multiple ChopperParser instances don't share state."""
+        # Create first parser and parse content
+        parser1 = ChopperParser()
+        parser1.feed('<style chopper:file="first.css">body { color: red; }</style>')
+
+        # Create second parser and parse different content
+        parser2 = ChopperParser()
+        parser2.feed('<script chopper:file="second.js">console.log("test");</script>')
+
+        # Verify they have independent state
+        assert len(parser1.parsed_data) == 1
+        assert len(parser2.parsed_data) == 1
+        assert parser1.parsed_data[0].path == "first.css"
+        assert parser2.parsed_data[0].path == "second.js"
+
+        # Verify parser1's data wasn't affected by parser2
+        assert parser1.parsed_data[0].tag == "style"
+        assert parser2.parsed_data[0].tag == "script"
+
+    def test_parser_sequential_reuse(self):
+        """Test that a single parser instance can be reused sequentially."""
+        parser = ChopperParser()
+
+        # First parse
+        parser.feed('<style chopper:file="first.css">body { color: red; }</style>')
+        assert len(parser.parsed_data) == 1
+        assert parser.parsed_data[0].path == "first.css"
+
+        # Create new parser for second parse (parsers should not be reused in practice)
+        parser2 = ChopperParser()
+        parser2.feed('<script chopper:file="second.js">console.log("test");</script>')
+        assert len(parser2.parsed_data) == 1
+        assert parser2.parsed_data[0].path == "second.js"
+
+        # Verify first parser data is unchanged
+        assert len(parser.parsed_data) == 1
+        assert parser.parsed_data[0].path == "first.css"
+
+
+class TestBatchProcessingGracefulDegradation(TestChopperBase):
+    """Test that batch processing continues when individual files fail."""
+
+    def test_batch_processing_with_permission_error(self):
+        """Test that batch processing continues on permission errors."""
+        import stat
+
+        if hasattr(os, "getuid") and os.getuid() == 0:
+            pytest.skip("Cannot test permission errors as root user")
+
+        # Create multiple chopper files
+        file1 = self.create_chopper_file(
+            "good1.chopper.html",
+            '<style chopper:file="good1.css">.test { color: blue; }</style>',
+        )
+
+        file2 = self.create_chopper_file(
+            "bad.chopper.html",
+            '<style chopper:file="bad.css">.bad { color: red; }</style>',
+        )
+
+        # Process first file successfully
+        result1 = self.run_chopper(file1)
+        assert result1, "First file should succeed"
+        assert (self.css_dir / "good1.css").exists()
+
+        # Make css directory read-only to cause file2 to fail
+        original_mode = self.css_dir.stat().st_mode
+        self.css_dir.chmod(stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+
+        try:
+            # Process second file - should fail gracefully without sys.exit
+            result2 = self.run_chopper(file2)
+            assert result2 is False, "Second file should fail due to permissions"
+        finally:
+            # Restore permissions
+            self.css_dir.chmod(original_mode)
+
+        # Verify we can still process files after the error
+        file3 = self.create_chopper_file(
+            "good2.chopper.html",
+            '<style chopper:file="good2.css">.test2 { color: green; }</style>',
+        )
+        result3 = self.run_chopper(file3)
+        assert result3, "Third file should succeed after earlier failure"
+        assert (self.css_dir / "good2.css").exists()
+
+
+class TestConstantsModule(TestChopperBase):
+    """Test that constants module is properly accessible and functional."""
+
+    def test_constants_module_imports(self):
+        """Test that constants module exports are accessible."""
+        from chopper.constants import (
+            CHOPPER_FILE_EXTENSION,
+            MAX_CONFIG_SEARCH_DEPTH,
+            CONFIG_FILE_NAMES,
+            Comment,
+            COMMENT_CLIENT_STYLES,
+            COMMENT_SERVER_STYLES,
+            TREE_BRANCH,
+            TREE_LAST,
+            TREE_PIPE,
+        )
+
+        # Verify key constants have expected values
+        assert CHOPPER_FILE_EXTENSION == ".chopper.html"
+        assert MAX_CONFIG_SEARCH_DEPTH == 5
+        assert isinstance(CONFIG_FILE_NAMES, list)
+        assert len(CONFIG_FILE_NAMES) == 4
+        assert ".chopper" in CONFIG_FILE_NAMES
+
+        # Verify comment styles are accessible
+        assert "php" in COMMENT_CLIENT_STYLES
+        assert "html" in COMMENT_SERVER_STYLES
+        assert "twig" in COMMENT_CLIENT_STYLES
+
+        # Verify tree symbols exist
+        assert TREE_BRANCH
+        assert TREE_LAST
+        assert TREE_PIPE
+
+    def test_comment_namedtuple_functionality(self):
+        """Test that Comment NamedTuple works correctly."""
+        from chopper.constants import Comment
+
+        # Create comment instance
+        test_comment = Comment("/* ", " */")
+        assert test_comment.open == "/* "
+        assert test_comment.close == " */"
+
+        # Test immutability (should raise AttributeError)
+        with pytest.raises(AttributeError):
+            test_comment.open = "<!--"
+
+    def test_backward_compatibility_aliases(self):
+        """Test that backward compatibility aliases work."""
+        from chopper.chopper import (
+            CHOPPER_NAME,
+            comment_cs_styles,
+            comment_ss_styles,
+        )
+        from chopper.constants import (
+            CHOPPER_FILE_EXTENSION,
+            COMMENT_CLIENT_STYLES,
+            COMMENT_SERVER_STYLES,
+        )
+
+        # Verify aliases point to the same objects
+        assert CHOPPER_NAME == CHOPPER_FILE_EXTENSION
+        assert comment_cs_styles is COMMENT_CLIENT_STYLES
+        assert comment_ss_styles is COMMENT_SERVER_STYLES
+
+
+class TestMalformedHTMLHandling(TestChopperBase):
+    """Test graceful handling of malformed HTML with unbalanced tags."""
+
+    def test_unbalanced_closing_tags(self):
+        """Test that parser handles extra closing tags gracefully."""
+        content = """
+        <style chopper:file="test.css">
+            .class1 { color: blue; }
+        </style>
+        </style>  <!-- Extra closing tag -->
+        <script chopper:file="test.js">
+            console.log("test");
+        </script>
+        """
+
+        chopper_file = self.create_chopper_file("unbalanced.chopper.html", content)
+
+        # Should not crash with IndexError
+        success = self.run_chopper(chopper_file)
+
+        # Verify files were created
+        assert (self.css_dir / "test.css").exists()
+        assert (self.js_dir / "test.js").exists()
+
+    def test_multiple_unbalanced_tags(self):
+        """Test handling of multiple unbalanced closing tags."""
+        content = """
+        <style chopper:file="test1.css">.test1 { color: red; }</style>
+        </style>
+        </style>
+        </script>  <!-- Wrong tag type -->
+        <script chopper:file="test2.js">console.log("ok");</script>
+        </script>
+        """
+
+        chopper_file = self.create_chopper_file(
+            "multi_unbalanced.chopper.html", content
+        )
+
+        # Should handle gracefully
+        success = self.run_chopper(chopper_file)
+
+        # At least the valid sections should be processed
+        assert (self.css_dir / "test1.css").exists()
+        assert (self.js_dir / "test2.js").exists()
+
+    def test_deeply_nested_unbalanced_tags(self):
+        """Test handling of deeply nested structures with unbalanced tags."""
+        content = """
+        <style chopper:file="outer.css">
+            .outer { color: blue; }
+            <style chopper:file="inner.css">
+                .inner { color: red; }
+            </style>
+        </style>
+        </style>  <!-- Extra closing -->
+        """
+
+        chopper_file = self.create_chopper_file(
+            "nested_unbalanced.chopper.html", content
+        )
+
+        # Should not crash
+        success = self.run_chopper(chopper_file)
+        assert success
+
+
 if __name__ == "__main__":
     # Allow running tests directly
     pytest.main([__file__, "-v"])

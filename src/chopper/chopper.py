@@ -511,6 +511,9 @@ def write_to_file(
         current_contents = f.read()
     except io.UnsupportedOperation:
         current_contents = ""
+    except PermissionError as e:
+        show_error(Action.WRITE, str(partial), f"Permission denied reading file: {e}")
+        return False
 
     if current_contents != content:
         if warn:

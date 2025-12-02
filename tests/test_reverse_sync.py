@@ -9,11 +9,13 @@ made to destination files, providing interactive prompts for user approval.
 import pytest
 import tempfile
 import shutil
+import os
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from typing import Dict, List
 import subprocess
 import sys
+from click.testing import CliRunner
 
 # Add src to path so we can import chopper modules
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -26,6 +28,7 @@ from chopper.chopper import (
     CommentType,
     Action,
 )
+from chopper.cli import main
 
 
 class TestReverseSyncFunctionality:
@@ -459,31 +462,130 @@ console.log("test");
 class TestErrorHandling(TestReverseSyncFunctionality):
     """Test error handling scenarios."""
 
-    @pytest.mark.skip(reason="TODO: Implement after core functionality")
     def test_missing_destination_files(self):
         """Test handling when destination files don't exist."""
-        pass
+        # Create chopper file
+        chopper_file = self.create_basic_chopper_file()
 
-    @pytest.mark.skip(reason="TODO: Implement after core functionality")
+        # DON'T run initial chop - so destination files don't exist
+        # Try to run with --update --warn when destination doesn't exist
+        # Should handle gracefully and report files don't exist
+        success = self.run_chopper_command(chopper_file, warn=True, update=True)
+
+        assert success is False, "Should fail when destination files don't exist"
+
+        # Verify destination files were not created in warn+update mode
+        css_file = self.css_dir / "components" / "hero.css"
+        js_file = self.js_dir / "components" / "hero.js"
+        html_file = self.html_dir / "components" / "hero.html"
+
+        assert not css_file.exists(), "Should not create CSS file in warn+update mode"
+        assert not js_file.exists(), "Should not create JS file in warn+update mode"
+        assert not html_file.exists(), "Should not create HTML file in warn+update mode"
+
     def test_permission_errors(self):
         """Test handling file permission errors."""
-        pass
+        import stat
+
+        if hasattr(os, "getuid") and os.getuid() == 0:
+            pytest.skip("Cannot test permission errors as root user")
+
+        # Create chopper file and generate initial files
+        chopper_file = self.create_basic_chopper_file()
+        success = self.run_chopper_command(chopper_file, warn=False, update=False)
+        assert success, "Initial chopper run should succeed"
+
+        # Modify destination file
+        css_file = self.css_dir / "components" / "hero.css"
+        self.modify_destination_file("components/hero.css", ".hero { color: red; }")
+
+        # Make destination file unreadable
+        original_mode = css_file.stat().st_mode
+        css_file.chmod(0o000)  # No permissions
+
+        try:
+            # Try to update - should fail gracefully with permission error
+            # Mock the user input to say 'y' (but we'll never get there due to read error)
+            with patch("click.prompt", return_value="y"):
+                success = self.run_chopper_command(
+                    chopper_file, warn=True, update=False
+                )
+
+            # Should fail when trying to read the unreadable file
+            assert success is False, "Should fail when cannot read destination file"
+
+        finally:
+            # Restore permissions for cleanup
+            css_file.chmod(original_mode)
 
 
 class TestCLIIntegration(TestReverseSyncFunctionality):
     """Test CLI flag integration."""
 
-    @pytest.mark.skip(
-        reason="TODO: Implement CLI-level testing after core functionality"
-    )
     def test_update_requires_warn_flag(self):
         """Test that --update requires --warn flag."""
-        pass
+        # Create a test chopper file
+        chopper_file = self.chopper_dir / "test.chopper.html"
+        chopper_file.write_text(
+            '<style chopper:file="test.css">.test { color: blue; }</style>'
+        )
 
-    @pytest.mark.skip(reason="TODO: Implement after core functionality")
+        # Use Click's CliRunner to test the CLI
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                str(self.chopper_dir),
+                "-c",
+                str(self.css_dir),
+                "-s",
+                str(self.js_dir),
+                "-m",
+                str(self.html_dir),
+                "--update",
+                "--overwrite",  # This is the opposite of --warn
+            ],
+        )
+
+        # Should exit with error code 1
+        assert result.exit_code == 1, "Should fail when --update used without --warn"
+        assert "Error: --update requires --warn flag" in result.output, (
+            f"Should show error message. Output: {result.output}"
+        )
+
     def test_update_conflicts_with_watch(self):
         """Test that --update cannot be used with --watch."""
-        pass
+        # Create a test chopper file
+        chopper_file = self.chopper_dir / "test.chopper.html"
+        chopper_file.write_text(
+            '<style chopper:file="test.css">.test { color: blue; }</style>'
+        )
+
+        # Use Click's CliRunner to test the CLI
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                str(self.chopper_dir),
+                "-c",
+                str(self.css_dir),
+                "-s",
+                str(self.js_dir),
+                "-m",
+                str(self.html_dir),
+                "--update",
+                "--warn",  # Required for --update
+                "--watch",  # Conflicts with --update
+            ],
+        )
+
+        # Should exit with error code 1
+        assert result.exit_code == 1, (
+            f"Should fail when --update used with --watch. Exit code: {result.exit_code}, Output: {result.output}"
+        )
+        assert "Error: --update cannot be used with --watch" in result.output, (
+            f"Should show error message. Output: {result.output}"
+        )
 
 
 if __name__ == "__main__":
