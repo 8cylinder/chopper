@@ -29,9 +29,12 @@ def validate_output_path(file_path: str, base_path: str) -> tuple[bool, str]:
         return False, "Empty file path or base path"
 
     try:
+        # Normalize path separators to handle both Unix and Windows styles
+        normalized_path = file_path.replace('\\', '/')
+
         # Resolve the paths to handle '..' and '.' components
         base_resolved = Path(base_path).resolve()
-        requested_path = Path(base_path, file_path).resolve()
+        requested_path = Path(base_path, normalized_path).resolve()
 
         # Check if the requested path is within the base directory
         try:
