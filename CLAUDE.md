@@ -47,6 +47,7 @@ uv run chopper public/chopper/ -s public/js/ -c public/css/ -m public/views/
 - When finishing a task, run `ruff format`.
 - Use type hinting for all code written.
 - Follow python best practices.
+- When making changes run the tests to ensure functioning code.
 
 ### Code Quality
 

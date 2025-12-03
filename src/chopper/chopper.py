@@ -346,18 +346,8 @@ def chop(
 
     for i, block in enumerate(data):
         block.base_path = types[block.tag]
-        # block.file_type = ""
-        # block.base_path = root
         if "{" in block.path:
             show_warning(f'Magic vars no longer work: "{block.path}".')
-
-        # SECURITY: Validate output path to prevent directory traversal
-        if block.path:
-            is_valid, error_msg = validate_output_path(block.path, block.base_path)
-            if not is_valid:
-                show_error(Action.CHOP, source, f"Security violation: {error_msg}")
-                success = False
-                continue  # Skip this block entirely
 
         block.content = extract_block(block.start, block.end, source_html_split)
         block.source_file = source
@@ -372,7 +362,7 @@ def chop(
             block.content = f"\n{comment_line}\n\n{block.content}"
 
         last = False if block_count != i else True
-        if not new_or_overwrite_file(block, log, warn, update, last):
+        if not write_chopped_block(block, log, warn, update, last):
             success = False
 
     return success
@@ -405,7 +395,87 @@ def extract_block(
     return extracted_rendered
 
 
-def new_or_overwrite_file(
+def ensure_parent_directory_exists(file_path: Path) -> bool:
+    """Create parent directory for file if it doesn't exist.
+
+    Args:
+        file_path: Path to the file whose parent should be created
+
+    Returns:
+        True if directory exists or was created successfully, False on error
+    """
+    if not file_path.parent.exists():
+        try:
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            print_action(Action.DIR, file_path.parent)
+            return True
+        except (OSError, PermissionError) as e:
+            show_error(
+                Action.DIR, str(file_path.parent), f"Cannot create directory: {e}"
+            )
+            return False
+    return True
+
+
+def validate_and_resolve_output_path(
+    block: ParsedData,
+) -> tuple[bool, Path | None, str]:
+    """Validate block has valid output path and resolve it.
+
+    Args:
+        block: ParsedData containing path and base_path
+
+    Returns:
+        Tuple of (is_valid, resolved_path, error_message)
+    """
+    if not block.path:
+        return True, None, ""
+
+    # Validate output path for security
+    is_valid, error_msg = validate_output_path(block.path, block.base_path)
+    if not is_valid:
+        return False, None, error_msg
+
+    return True, Path(block.base_path) / block.path, ""
+
+
+def open_file_for_write(
+    partial_file: Path, warn: bool
+) -> tuple[TextIO | None, bool, str]:
+    """Open file for writing, handling new vs existing files.
+
+    Args:
+        partial_file: Path to file to open
+        warn: Whether warn mode is enabled
+
+    Returns:
+        Tuple of (file_handle, is_new_file, error_message)
+    """
+    try:
+        # Check if file should exist in warn mode
+        if warn and not partial_file.exists():
+            return None, False, "DOES_NOT_EXIST"
+
+        # Update existing file
+        if partial_file.exists():
+            f = open(partial_file, "r+")
+            return f, False, ""
+        # Create new file
+        else:
+            f = open(partial_file, "w")
+            return f, True, ""
+
+    except IsADirectoryError:
+        return None, False, f"Destination is a directory: {partial_file}"
+    except PermissionError as e:
+        return None, False, f"Permission denied: {e}"
+    except FileNotFoundError as e:
+        return None, False, f"File not found: {e}"
+    except OSError as e:
+        return None, False, f"OS error: {e}"
+
+
+def write_chopped_block(
     block: ParsedData,
     log: ChopperLog,
     warn: bool = False,
@@ -414,6 +484,8 @@ def new_or_overwrite_file(
 ) -> bool:
     """Create or update the file specified in the chopper:file attribute."""
     content = block.content
+
+    # Handle blocks with no destination path
     if not block.path:
         print_action(Action.UNCHANGED, "No destination defined", last=False)
         log.chopped.append(
@@ -421,62 +493,146 @@ def new_or_overwrite_file(
         )
         return True
 
-    # SECURITY: Validate output path to prevent directory traversal (defense in depth)
-    is_valid, error_msg = validate_output_path(block.path, block.base_path)
+    # Validate and resolve output path
+    is_valid, partial_file, error_msg = validate_and_resolve_output_path(block)
     if not is_valid:
         show_error(Action.WRITE, block.source_file, f"Security violation: {error_msg}")
         log.chopped.append(Chopped(Action.MISSMATCH, Path(block.path), error_msg))
         return False
 
-    partial_file = Path(block.base_path) / block.path
+    assert partial_file is not None  # mypy hint: validated above
 
-    # Create parent directory if needed
-    if not partial_file.parent.exists():
-        try:
-            partial_file.parent.mkdir(parents=True, exist_ok=True)
-            print_action(Action.DIR, partial_file.parent)
-            log.chopped.append(Chopped(Action.DIR, partial_file.parent))
-        except (OSError, PermissionError) as e:
-            show_error(
-                Action.DIR, str(partial_file.parent), f"Cannot create directory: {e}"
-            )
-            return False
+    # Ensure parent directory exists
+    if not ensure_parent_directory_exists(partial_file):
+        return False
 
-    # Handle file operations with clear error handling
+    # Open file for writing
+    file_handle, is_new_file, error_msg = open_file_for_write(partial_file, warn)
+
+    if error_msg == "DOES_NOT_EXIST":
+        print_action(Action.DOES_NOT_EXIST, partial_file, last=last)
+        return False
+
+    if file_handle is None:
+        show_error(Action.WRITE, block.source_file, error_msg)
+        return False
+
+    # Write content to file
     try:
-        # Check if file should exist in warn mode
-        if warn and not partial_file.exists():
-            print_action(Action.DOES_NOT_EXIST, partial_file, last=last)
-            return False
+        with file_handle:
+            return write_to_file(
+                block,
+                content,
+                file_handle,
+                last,
+                partial_file,
+                warn,
+                update,
+                is_new_file,
+            )
+    except Exception as e:
+        show_error(Action.WRITE, block.source_file, f"Unexpected error: {e}")
+        return False
 
-        # Update existing file
-        if partial_file.exists():
-            with open(partial_file, "r+") as f:
-                return write_to_file(
-                    block, content, f, last, partial_file, warn, update, False
-                )
-        # Create new file
-        else:
-            with open(partial_file, "w") as f:
-                return write_to_file(
-                    block, content, f, last, partial_file, False, update, True
-                )
-    except IsADirectoryError:
-        show_error(
-            Action.WRITE,
-            block.source_file,
-            f"Destination is a directory: {partial_file}",
-        )
-        return False
+
+def read_file_content(f: TextIO) -> tuple[str | None, str]:
+    """Read content from file handle.
+
+    Args:
+        f: File handle to read from
+
+    Returns:
+        Tuple of (content, error_message)
+    """
+    try:
+        return f.read(), ""
+    except io.UnsupportedOperation:
+        return "", ""
     except PermissionError as e:
-        show_error(Action.WRITE, block.source_file, f"Permission denied: {e}")
-        return False
-    except FileNotFoundError as e:
-        show_error(Action.WRITE, block.source_file, f"File not found: {e}")
-        return False
-    except OSError as e:
-        show_error(Action.WRITE, block.source_file, f"OS error: {e}")
-        return False
+        return None, f"Permission denied reading file: {e}"
+
+
+def prompt_for_update() -> str:
+    """Prompt user to update chopper file with destination changes.
+
+    Returns:
+        User choice: 'y', 'n', or 'c'
+    """
+    return click.prompt(
+        "Update chopper file?",
+        type=click.Choice(["y", "n", "c"], case_sensitive=False),
+    )
+
+
+def handle_file_difference(
+    block: ParsedData,
+    content: str,
+    current_contents: str,
+    partial: Path,
+    warn: bool,
+    update: bool,
+) -> tuple[bool, bool]:
+    """Handle case where file contents differ from chopped content.
+
+    Args:
+        block: ParsedData containing source information
+        content: New content from chopper file
+        current_contents: Current file contents
+        partial: Path to destination file
+        warn: Whether warn mode is enabled
+        update: Whether update mode is enabled
+
+    Returns:
+        Tuple of (should_write, success)
+    """
+    if not warn:
+        return True, True
+
+    # Warn mode: show error and diff
+    show_error(Action.WRITE, str(partial), "File contents differ")
+    a = partial.absolute()
+    b = Path(block.source_file).absolute()
+    a, b = remove_common_path(a, b, prefix="…")
+    show_diff(content, current_contents, str(a), str(b))
+
+    # Handle update mode
+    if update:
+        choice = prompt_for_update()
+
+        if choice == "y":
+            # Update the chopper file with destination content
+            if update_chopper_section(Path(block.source_file), block, current_contents):
+                return False, True  # Don't write, but consider success
+            else:
+                return False, False  # Update failed
+        elif choice == "c":
+            # Cancel entire operation
+            click.echo("Operation cancelled")
+            sys.exit(0)
+        # choice == 'n': continue with warn behavior
+
+    return False, False  # Don't write, not success
+
+
+def write_content_to_file(
+    f: TextIO, content: str, partial: Path, last: bool, is_new: bool
+) -> None:
+    """Write content to file handle and print appropriate action.
+
+    Args:
+        f: File handle to write to
+        content: Content to write
+        partial: Path to file for logging
+        last: Whether this is the last file being processed
+        is_new: Whether this is a new file
+    """
+    if is_new:
+        print_action(Action.NEW, partial, last=last)
+    else:
+        print_action(Action.WRITE, partial, last=last)
+    f.seek(0)
+    f.write(content)
+    f.truncate()
 
 
 def write_to_file(
@@ -493,60 +649,23 @@ def write_to_file(
 
     Show a diff if the file contents differ and the warn flag is set.
     """
-    success: bool = True
-    try:
-        current_contents = f.read()
-    except io.UnsupportedOperation:
-        current_contents = ""
-    except PermissionError as e:
-        show_error(Action.WRITE, str(partial), f"Permission denied reading file: {e}")
+    # Read current file contents
+    current_contents, error_msg = read_file_content(f)
+    if current_contents is None:
+        show_error(Action.WRITE, str(partial), error_msg)
         return False
 
+    # Check if content differs
     if current_contents != content:
-        if warn:
-            show_error(Action.WRITE, str(partial), "File contents differ")
-            a = partial.absolute()
-            b = Path(block.source_file).absolute()
-            a, b = remove_common_path(a, b, prefix="…")
-            show_diff(content, current_contents, str(a), str(b))
-
-            # Add update prompt if --update flag used
-            if update:
-                import click
-
-                choice = click.prompt(
-                    "Update chopper file?",
-                    type=click.Choice(["y", "n", "c"], case_sensitive=False),
-                )
-
-                if choice == "y":
-                    # Update the chopper file with destination content
-                    if update_chopper_section(
-                        Path(block.source_file), block, current_contents
-                    ):
-                        success = True  # Consider this a success
-                    else:
-                        success = False  # Update failed
-                elif choice == "c":
-                    # Cancel entire operation
-                    click.echo("Operation cancelled")
-                    sys.exit(0)
-                # 'n' continues with warn behavior (success = False)
-
-            if not update or (update and choice == "n"):
-                success = False
-        else:
-            if newfile:
-                print_action(Action.NEW, partial, last=last)
-            else:
-                print_action(Action.WRITE, partial, last=last)
-            f.seek(0)
-            f.write(content)
-            f.truncate()
+        should_write, success = handle_file_difference(
+            block, content, current_contents, partial, warn, update
+        )
+        if should_write:
+            write_content_to_file(f, content, partial, last, newfile)
+        return success
     else:
         print_action(Action.UNCHANGED, partial, last=last)
-
-    return success
+        return True
 
 
 def remove_common_path(a: Path, b: Path, prefix: str = "") -> tuple[Path, Path]:
