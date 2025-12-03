@@ -18,6 +18,109 @@ from watchdog.observers import Observer
 __version__ = importlib.metadata.version("chopper")
 
 
+def print_debug_info(locals_dict: dict[str, str | bool | Path | CommentType]) -> None:
+    """Print debug information about locals and environment variables."""
+    print()
+    click.secho("Locals:", bold=True)
+    for key, value in locals_dict.items():
+        print(f"{key:10} {value}")
+    print()
+    click.secho("Environment variables:", bold=True)
+    for key, value in os.environ.items():
+        if key.startswith("CHOPPER_"):
+            print(f"{key:20}{value}")
+    print()
+
+
+def validate_command_flags(update: bool, warn: bool, watch: bool) -> None:
+    """Validate flag combinations and exit if invalid.
+
+    Raises:
+        SystemExit: If flag combination is invalid
+    """
+    if update and not warn:
+        click.echo("Error: --update requires --warn flag", err=True)
+        sys.exit(1)
+
+    if update and watch:
+        click.echo("Error: --update cannot be used with --watch", err=True)
+        sys.exit(1)
+
+
+def get_chopper_files(source_path: Path) -> list[str]:
+    """Get list of chopper files from source path.
+
+    Args:
+        source_path: Path to file or directory containing chopper files
+
+    Returns:
+        List of chopper file paths
+
+    Raises:
+        SystemExit: If source path doesn't exist
+    """
+    if source_path.exists():
+        if source_path.is_dir():
+            return find_chopper_files(source_path)
+        else:
+            return [str(source_path)]
+    else:
+        show_error(Action.CHOP, str(source_path), "No such file or directory:")
+        sys.exit(1)
+
+
+def process_files(
+    chopper_files: list[str],
+    types: dict[str, str],
+    comments: CommentType,
+    warn: bool,
+    update: bool,
+) -> bool:
+    """Process all chopper files.
+
+    Args:
+        chopper_files: List of file paths to process
+        types: Dictionary mapping type names to output directories
+        comments: Comment style to use
+        warn: Whether to warn instead of overwrite
+        update: Whether to enable interactive update mode
+
+    Returns:
+        True if all files processed successfully, False otherwise
+    """
+    success = True
+    for source_file in chopper_files:
+        if not chop(source_file, types, comments, warn=warn, update=update):
+            success = False
+    return success
+
+
+def start_watch_mode(
+    source: str,
+    types: dict[str, str],
+    comments: CommentType,
+) -> None:
+    """Start watch mode to monitor directory for changes.
+
+    Args:
+        source: Source directory to watch
+        types: Dictionary mapping type names to output directories
+        comments: Comment style to use
+    """
+    event_handler = ChopEventHandler(types, comments, warn=False)
+    observer = Observer()
+    observer.schedule(event_handler, path=source, recursive=True)
+    observer.start()
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        click.echo("\nChopper watch ended.")
+    finally:
+        observer.stop()
+        observer.join()
+
+
 class ChopEventHandler(FileSystemEventHandler):
     source: str
     types: dict[str, str]
@@ -107,37 +210,13 @@ def main(
     CHOPPER_WATCH
     CHOPPER_INDENT
     """
-
     if debug:
-        print()
-        click.secho("Locals:", bold=True)
-        for key, value in locals().items():
-            print(f'{key:10} {value}')
-        print()
-        click.secho('Environment variables:', bold=True)
-        for key, value in os.environ.items():
-            if key.startswith("CHOPPER_"):
-                print(f'{key:20}{value}')
-        print()
+        print_debug_info(locals())
 
-    # Validate flag combinations
-    if update and not warn:
-        click.echo("Error: --update requires --warn flag", err=True)
-        sys.exit(1)
-
-    if update and watch:
-        click.echo("Error: --update cannot be used with --watch", err=True)
-        sys.exit(1)
+    validate_command_flags(update, warn, watch)
 
     source_path = Path(source)
-    if source_path.exists():
-        if source_path.is_dir():
-            chopper_files = find_chopper_files(source_path)
-        else:
-            chopper_files = [str(source_path)]
-    else:
-        show_error(Action.CHOP, str(source_path), "No such file or directory:")
-        sys.exit(1)
+    chopper_files = get_chopper_files(source_path)
 
     types = {
         "script": script_dir or "",
@@ -145,25 +224,11 @@ def main(
         "chop": html_dir or "",
     }
 
-    success: bool = True
-    for source_file in chopper_files:
-        if not chop(source_file, types, comments, warn=warn, update=update):
-            success = False
+    success = process_files(chopper_files, types, comments, warn, update)
 
     if not success:
         click.secho("Some files are different", fg="red")
         sys.exit(1)
 
     if watch:
-        event_handler = ChopEventHandler(types, comments, warn=False)
-        observer = Observer()
-        observer.schedule(event_handler, path=source, recursive=True)
-        observer.start()
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            click.echo('\nChopper watch ended.')
-        finally:
-            observer.stop()
-            observer.join()
+        start_watch_mode(source, types, comments)
