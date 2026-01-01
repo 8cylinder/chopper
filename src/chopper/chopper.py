@@ -92,9 +92,6 @@ def find_file_upwards(
 # Config loading moved to after function definitions
 # Constants now imported from constants.py
 
-# Alias for backward compatibility
-CHOPPER_NAME = CHOPPER_FILE_EXTENSION
-
 
 class Action(Enum):
     CHOP = "Chop"
@@ -179,6 +176,23 @@ if dot_env := find_file_upwards(Path.cwd(), chopper_confs):
     except Exception as e:
         show_warning(f"Failed to load config file {dot_env}: {e}")
         # Continue execution without config file
+
+
+def get_chopper_file_pattern() -> str:
+    """Get the chopper file pattern from environment variable or default.
+
+    Returns:
+        File pattern string, defaults to CHOPPER_FILE_EXTENSION if not set
+        or if environment variable is empty.
+    """
+    pattern = os.environ.get("CHOPPER_FILE_PATTERN", CHOPPER_FILE_EXTENSION)
+    if not pattern:  # Handle empty string case
+        pattern = CHOPPER_FILE_EXTENSION
+    return pattern
+
+
+# Dynamic alias that respects environment configuration
+CHOPPER_NAME = get_chopper_file_pattern()
 
 
 @dataclass
