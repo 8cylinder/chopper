@@ -358,7 +358,10 @@ def chop(
     block_count = len(data) - 1
     success: bool = True
 
-    for i, block in enumerate(data):
+    i = 0
+    while i < len(data):
+        block = data[i]
+
         block.base_path = types[block.tag]
         if "{" in block.path:
             show_warning(f'Magic vars no longer work: "{block.path}".')
@@ -376,8 +379,31 @@ def chop(
             block.content = f"\n{comment_line}\n\n{block.content}"
 
         last = False if block_count != i else True
-        if not write_chopped_block(block, log, warn, update, last):
+        result, source_updated = write_chopped_block(block, log, warn, update, last)
+        if not result:
             success = False
+
+        # If source was updated, re-parse to get fresh positions for remaining blocks
+        if source_updated:
+            try:
+                with open(source, "r") as f:
+                    source_html = f.read()
+            except UnicodeDecodeError:
+                show_error(
+                    Action.CHOP, source, "File is not a valid UTF-8 file after update."
+                )
+                return False
+
+            parser = ChopperParser()
+            parser.feed(source_html)
+            data = parser.parsed_data
+            source_html_split = source_html.splitlines()
+            block_count = len(data) - 1
+            # Move to next block - current one was just updated
+            i += 1
+            continue
+
+        i += 1
 
     return success
 
@@ -495,8 +521,14 @@ def write_chopped_block(
     warn: bool = False,
     update: bool = False,
     last: bool = False,
-) -> bool:
-    """Create or update the file specified in the chopper:file attribute."""
+) -> tuple[bool, bool]:
+    """Create or update the file specified in the chopper:file attribute.
+
+    Returns:
+        Tuple of (success, source_was_updated)
+        - success: Whether operation succeeded
+        - source_was_updated: Whether the chopper source file was modified
+    """
     content = block.content
 
     # Handle blocks with no destination path
@@ -505,31 +537,31 @@ def write_chopped_block(
         log.chopped.append(
             Chopped(Action.UNCHANGED, Path(""), msg="No destination defined")
         )
-        return True
+        return True, False
 
     # Validate and resolve output path
     is_valid, partial_file, error_msg = validate_and_resolve_output_path(block)
     if not is_valid:
         show_error(Action.WRITE, block.source_file, f"Security violation: {error_msg}")
         log.chopped.append(Chopped(Action.MISSMATCH, Path(block.path), error_msg))
-        return False
+        return False, False
 
     assert partial_file is not None  # mypy hint: validated above
 
     # Ensure parent directory exists
     if not ensure_parent_directory_exists(partial_file):
-        return False
+        return False, False
 
     # Open file for writing
     file_handle, is_new_file, error_msg = open_file_for_write(partial_file, warn)
 
     if error_msg == "DOES_NOT_EXIST":
         print_action(Action.DOES_NOT_EXIST, partial_file, last=last)
-        return False
+        return False, False
 
     if file_handle is None:
         show_error(Action.WRITE, block.source_file, error_msg)
-        return False
+        return False, False
 
     # Write content to file
     try:
@@ -546,7 +578,7 @@ def write_chopped_block(
             )
     except Exception as e:
         show_error(Action.WRITE, block.source_file, f"Unexpected error: {e}")
-        return False
+        return False, False
 
 
 def read_file_content(f: TextIO) -> tuple[str | None, str]:
@@ -585,7 +617,7 @@ def handle_file_difference(
     partial: Path,
     warn: bool,
     update: bool,
-) -> tuple[bool, bool]:
+) -> tuple[bool, bool, bool]:
     """Handle case where file contents differ from chopped content.
 
     Args:
@@ -597,10 +629,13 @@ def handle_file_difference(
         update: Whether update mode is enabled
 
     Returns:
-        Tuple of (should_write, success)
+        Tuple of (should_write, success, source_was_updated)
+        - should_write: Whether to write content to destination
+        - success: Whether operation succeeded
+        - source_was_updated: Whether the chopper source file was modified
     """
     if not warn:
-        return True, True
+        return True, True, False
 
     # Warn mode: show error and diff
     show_error(Action.WRITE, str(partial), "File contents differ")
@@ -616,16 +651,16 @@ def handle_file_difference(
         if choice == "y":
             # Update the chopper file with destination content
             if update_chopper_section(Path(block.source_file), block, current_contents):
-                return False, True  # Don't write, but consider success
+                return False, True, True  # Don't write, success, source updated
             else:
-                return False, False  # Update failed
+                return False, False, False  # Update failed
         elif choice == "c":
             # Cancel entire operation
             click.echo("Operation cancelled")
             sys.exit(0)
         # choice == 'n': continue with warn behavior
 
-    return False, False  # Don't write, not success
+    return False, False, False  # Don't write, not success, no update
 
 
 def write_content_to_file(
@@ -658,28 +693,31 @@ def write_to_file(
     warn: bool,
     update: bool,
     newfile: bool,
-) -> bool:
+) -> tuple[bool, bool]:
     """Write the content to the file if it differs from the current contents.
 
     Show a diff if the file contents differ and the warn flag is set.
+
+    Returns:
+        Tuple of (success, source_was_updated)
     """
     # Read current file contents
     current_contents, error_msg = read_file_content(f)
     if current_contents is None:
         show_error(Action.WRITE, str(partial), error_msg)
-        return False
+        return False, False
 
     # Check if content differs
     if current_contents != content:
-        should_write, success = handle_file_difference(
+        should_write, success, source_updated = handle_file_difference(
             block, content, current_contents, partial, warn, update
         )
         if should_write:
             write_content_to_file(f, content, partial, last, newfile)
-        return success
+        return success, source_updated
     else:
         print_action(Action.UNCHANGED, partial, last=last)
-        return True
+        return True, False
 
 
 def remove_common_path(a: Path, b: Path, prefix: str = "") -> tuple[Path, Path]:

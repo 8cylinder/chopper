@@ -289,7 +289,7 @@ class TestHandleFileDifference:
             comment_close="",
         )
 
-        should_write, success, source_updated = handle_file_difference(
+        should_write, success = handle_file_difference(
             block=block,
             content="new content",
             current_contents="old content",
@@ -300,7 +300,6 @@ class TestHandleFileDifference:
 
         assert should_write is True
         assert success is True
-        assert source_updated is False  # No update in non-warn mode
 
     @patch("chopper.chopper.show_error")
     @patch("chopper.chopper.show_diff")
@@ -327,7 +326,7 @@ class TestHandleFileDifference:
             comment_close="",
         )
 
-        should_write, success, source_updated = handle_file_difference(
+        should_write, success = handle_file_difference(
             block=block,
             content="new content",
             current_contents="old content",
@@ -338,7 +337,6 @@ class TestHandleFileDifference:
 
         assert should_write is False
         assert success is False
-        assert source_updated is False  # No update when update flag is False
         mock_show_error.assert_called_once()
         mock_show_diff.assert_called_once()
 
@@ -376,7 +374,7 @@ class TestHandleFileDifference:
             comment_close="",
         )
 
-        should_write, success, source_updated = handle_file_difference(
+        should_write, success = handle_file_difference(
             block=block,
             content="new content",
             current_contents="old content",
@@ -387,7 +385,6 @@ class TestHandleFileDifference:
 
         assert should_write is False  # Don't write, we updated source
         assert success is True  # But consider it success
-        assert source_updated is True  # Source was updated
         mock_update_section.assert_called_once()
 
     @patch("chopper.chopper.show_error")
@@ -417,7 +414,7 @@ class TestHandleFileDifference:
             comment_close="",
         )
 
-        should_write, success, source_updated = handle_file_difference(
+        should_write, success = handle_file_difference(
             block=block,
             content="new content",
             current_contents="old content",
@@ -428,7 +425,6 @@ class TestHandleFileDifference:
 
         assert should_write is False
         assert success is False
-        assert source_updated is False  # No update when user declines
 
     @patch("chopper.chopper.show_error")
     @patch("chopper.chopper.show_diff")
@@ -509,7 +505,7 @@ class TestHandleFileDifference:
             comment_close="",
         )
 
-        should_write, success, source_updated = handle_file_difference(
+        should_write, success = handle_file_difference(
             block=block,
             content="new content",
             current_contents="old content",
@@ -520,7 +516,6 @@ class TestHandleFileDifference:
 
         assert should_write is False
         assert success is False  # Update failed
-        assert source_updated is False  # No update when update_chopper_section fails
 
 
 if __name__ == "__main__":

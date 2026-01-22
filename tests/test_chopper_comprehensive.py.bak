@@ -524,7 +524,7 @@ class TestCliModes(TestChopperBase):
         css_file2.write_text(".modified-second { color: yellow; }")
 
         # Mock user canceling on first prompt
-        with patch("chopper.chopper.click.prompt", return_value="c"):
+        with patch("click.prompt", return_value="c"):
             with pytest.raises(SystemExit):
                 self.run_chopper(chopper_file, warn=True, update=True)
 
@@ -577,7 +577,7 @@ class TestReverseSync(TestChopperBase):
 }""")
 
         # Update with reverse sync
-        with patch("chopper.chopper.click.prompt", return_value="y"):
+        with patch("click.prompt", return_value="y"):
             self.run_chopper(chopper_file, warn=True, update=True)
 
         updated_content = chopper_file.read_text()
@@ -623,7 +623,7 @@ function func2() { return 2; }
         js_file.write_text('function updated() { return "updated"; }')
 
         # Mock user: yes for CSS, no for JS
-        with patch("chopper.chopper.click.prompt", side_effect=["y", "n"]):
+        with patch("click.prompt", side_effect=["y", "n"]):
             self.run_chopper(chopper_file, warn=True, update=True)
 
         updated_content = chopper_file.read_text()
@@ -662,7 +662,7 @@ font-size: 16px;
 }""")
 
         # Update with default indentation
-        with patch("chopper.chopper.click.prompt", return_value="y"):
+        with patch("click.prompt", return_value="y"):
             self.run_chopper(chopper_file, warn=True, update=True)
 
         updated_content = chopper_file.read_text()
@@ -707,7 +707,7 @@ padding: 10px;
 
         # Set custom indentation (4 spaces) and update
         with patch.dict(os.environ, {"CHOPPER_INDENT": "    "}):  # 4 spaces
-            with patch("chopper.chopper.click.prompt", return_value="y"):
+            with patch("click.prompt", return_value="y"):
                 self.run_chopper(chopper_file, warn=True, update=True)
 
         updated_content = chopper_file.read_text()
@@ -1544,7 +1544,7 @@ console.log("test");
             css_file.write_text(".modified { color: red; }")
 
             # Test update with the indentation from environment
-            with patch("chopper.chopper.click.prompt", return_value="y"):
+            with patch("click.prompt", return_value="y"):
                 self.run_chopper(chopper_file, warn=True, update=True)
 
             # Check that environment variable was used
@@ -1769,7 +1769,7 @@ font-size: 16px;
 }""")
 
                 # Test reverse sync with indentation
-                with patch("chopper.chopper.click.prompt", return_value="y"):
+                with patch("click.prompt", return_value="y"):
                     self.run_chopper(chopper_file, warn=True, update=True)
 
                 updated_content = chopper_file.read_text()

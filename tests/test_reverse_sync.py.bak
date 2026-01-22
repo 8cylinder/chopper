@@ -157,7 +157,7 @@ class TestBasicUpdateFlow(TestReverseSyncFunctionality):
         css_file.write_text(modified_css)
 
         # Mock user input to accept the update
-        with patch("chopper.chopper.click.prompt", return_value="y"):
+        with patch("click.prompt", return_value="y"):
             # Run chopper in warn+update mode
             success = self.run_chopper_command(chopper_file, warn=True, update=True)
             # Note: This should return False because warn mode found differences
@@ -196,7 +196,7 @@ function initHeroAnimations() {
         js_file.write_text(modified_js)
 
         # Mock user input to accept update
-        with patch("chopper.chopper.click.prompt", return_value="y"):
+        with patch("click.prompt", return_value="y"):
             self.run_chopper_command(chopper_file, warn=True, update=True)
 
         # Verify chopper file was updated
@@ -222,7 +222,7 @@ function initHeroAnimations() {
         html_file.write_text(modified_html)
 
         # Mock user input to accept update
-        with patch("chopper.chopper.click.prompt", return_value="y"):
+        with patch("click.prompt", return_value="y"):
             self.run_chopper_command(chopper_file, warn=True, update=True)
 
         # Verify chopper file was updated
@@ -246,7 +246,7 @@ class TestUserDecisions(TestReverseSyncFunctionality):
         css_file.write_text(".hero { background: green; }")
 
         # Mock user input to decline update
-        with patch("chopper.chopper.click.prompt", return_value="n"):
+        with patch("click.prompt", return_value="n"):
             success = self.run_chopper_command(chopper_file, warn=True, update=True)
             assert not success, "Should return False when files differ"
 
@@ -269,7 +269,7 @@ class TestUserDecisions(TestReverseSyncFunctionality):
         js_file.write_text("console.log('CANCELLED TEST');")
 
         # Mock user input to cancel on first prompt
-        with patch("chopper.chopper.click.prompt", return_value="c"):
+        with patch("click.prompt", return_value="c"):
             with pytest.raises(SystemExit):  # Should exit when cancelled
                 self.run_chopper_command(chopper_file, warn=True, update=True)
 
@@ -295,7 +295,7 @@ class TestMultipleSections(TestReverseSyncFunctionality):
         css_file.write_text(".hero { background: purple; margin: 1rem; }")
 
         # Mock user input to accept update
-        with patch("chopper.chopper.click.prompt", return_value="y"):
+        with patch("click.prompt", return_value="y"):
             self.run_chopper_command(chopper_file, warn=True, update=True)
 
         updated_content = chopper_file.read_text()
@@ -323,7 +323,7 @@ class TestMultipleSections(TestReverseSyncFunctionality):
         js_file.write_text("console.log('MULTIPLE SECTIONS TEST');")
 
         # Mock user input: yes for CSS, no for JS
-        with patch("chopper.chopper.click.prompt", side_effect=["y", "n"]):
+        with patch("click.prompt", side_effect=["y", "n"]):
             self.run_chopper_command(chopper_file, warn=True, update=True)
 
         updated_content = chopper_file.read_text()
@@ -398,7 +398,7 @@ class TestPositionBasedReplacement(TestReverseSyncFunctionality):
 }""")
 
         # Mock user input to accept update
-        with patch("chopper.chopper.click.prompt", return_value="y"):
+        with patch("click.prompt", return_value="y"):
             self.run_chopper_command(chopper_file, warn=True, update=True)
 
         updated_content = chopper_file.read_text()
@@ -439,7 +439,7 @@ console.log("test");
         css_file.write_text(".test {\n    color: red;\n    font-size: 16px;\n}")
 
         # Mock user input
-        with patch("chopper.chopper.click.prompt", return_value="y"):
+        with patch("click.prompt", return_value="y"):
             self.run_chopper_command(chopper_file, warn=True, update=True)
 
         updated_content = chopper_file.read_text()
@@ -506,7 +506,7 @@ class TestErrorHandling(TestReverseSyncFunctionality):
         try:
             # Try to update - should fail gracefully with permission error
             # Mock the user input to say 'y' (but we'll never get there due to read error)
-            with patch("chopper.chopper.click.prompt", return_value="y"):
+            with patch("click.prompt", return_value="y"):
                 success = self.run_chopper_command(
                     chopper_file, warn=True, update=False
                 )
