@@ -1175,36 +1175,41 @@ console.log("test");
 console.log("server test");
 </script>
 
-<chop chopper:file="server.html">
+<chop chopper:file="server.twig">
 <div>Server HTML</div>
 </chop>"""
 
         chopper_file = self.create_chopper_file("server.chopper.html", content)
         types = self.get_types_dict()
 
-        # Run with server comments - currently behaves same as NONE
+        # Run with server comments
         success = chop(
             str(chopper_file), types, CommentType.SERVER, warn=False, update=False
         )
 
         assert success, "Should succeed with server comment type"
 
-        # Currently SERVER comment type behaves same as NONE (no comments added)
+        # SERVER comment type should add server-side comments
         css_file = self.css_dir / "server.css"
         css_content = css_file.read_text()
 
-        # Verify files are created with content but no comment headers
+        # CSS uses /* */ for both client and server
         assert ".server-test" in css_content, "Should contain actual CSS content"
-        assert not css_content.startswith("/*"), (
-            "SERVER comment type currently adds no comments"
-        )
+        assert "/* " in css_content, "SERVER comment type should add CSS comments"
+        assert str(chopper_file) in css_content, "Comment should include source path"
 
         js_file = self.js_dir / "server.js"
         js_content = js_file.read_text()
         assert "console.log" in js_content, "Should contain actual JS content"
-        assert not js_content.startswith("//"), (
-            "SERVER comment type currently adds no comments"
-        )
+        assert "// " in js_content, "SERVER comment type should add JS comments"
+        assert str(chopper_file) in js_content, "Comment should include source path"
+
+        # HTML template files should use server-side comment syntax
+        html_file = self.html_dir / "server.twig"
+        html_content = html_file.read_text()
+        assert "<div>Server HTML</div>" in html_content, "Should contain actual HTML content"
+        assert "{# " in html_content, "Twig files should use {# #} comments for server mode"
+        assert str(chopper_file) in html_content, "Comment should include source path"
 
     def test_no_comments(self):
         """Test files generated without comments."""

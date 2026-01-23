@@ -31,24 +31,33 @@ class Comment(NamedTuple):
 
 # Client-side comment styles (for files that run in browser)
 COMMENT_CLIENT_STYLES = {
-    "php": Comment("<!-- ", " -->"),
-    "html": Comment("<!-- ", " -->"),
+    "php":     Comment("<!-- ", " -->"),
+    "html":    Comment("<!-- ", " -->"),
     "antlers": Comment("<!-- ", " -->"),
-    "twig": Comment("<!-- ", " -->"),
-    "js": Comment("// ", ""),
-    "css": Comment("/* ", " */"),
-    "none": Comment("", ""),
+    "twig":    Comment("<!-- ", " -->"),
+    "js":      Comment("// ", ""),
+    "mjs":     Comment("// ", ""),
+    "ts":      Comment("// ", ""),
+    "tsx":     Comment("// ", ""),
+    "jsx":     Comment("// ", ""),
+    "css":     Comment("/* ", " */"),
+    "scss":    Comment("/* ", " */"),
+    "none":    Comment("", ""),
 }
 
 # Server-side comment styles (for template engines)
 COMMENT_SERVER_STYLES = {
-    "php": Comment("/* ", " */"),
-    "html": Comment("{# ", " #}"),
+    "php":     Comment("/* ", " */"),
+    "html":    Comment("{# ", " #}"),
     "antlers": Comment("{{# ", " #}}"),
-    "twig": Comment("{# ", " #}"),
-    "js": Comment("// ", ""),
-    "css": Comment("/* ", " */"),
-    "none": Comment("", ""),
+    "twig":    Comment("{# ", " #}"),
+    "js":      Comment("// ", ""),
+    "ts":      Comment("// ", ""),
+    "tsx":     Comment("// ", ""),
+    "jsx":     Comment("// ", ""),
+    "css":     Comment("/* ", " */"),
+    "scss":    Comment("/* ", " */"),
+    "none":    Comment("", ""),
 }
 
 # Tree output symbols
