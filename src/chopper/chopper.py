@@ -9,8 +9,7 @@ from enum import Enum
 from html.parser import HTMLParser
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, NamedTuple, \
-    TextIO  # from typing_extensions import TextIO
+from typing import Any, NamedTuple, TextIO  # from typing_extensions import TextIO
 import click
 from dotenv import load_dotenv
 
@@ -51,8 +50,7 @@ def validate_output_path(file_path: str, base_path: str) -> tuple[bool, str]:
         except ValueError:
             return (
                 False,
-                f"Path '{file_path}' attempts to write outside allowed "
-                f"directory",
+                f"Path '{file_path}' attempts to write outside allowed directory",
             )
 
     except (ValueError, OSError) as e:
@@ -60,9 +58,9 @@ def validate_output_path(file_path: str, base_path: str) -> tuple[bool, str]:
 
 
 def find_file_upwards(
-        start_dir: Path,
-        target_files: list[str] | None = None,
-        max_depth: int = MAX_CONFIG_SEARCH_DEPTH,
+    start_dir: Path,
+    target_files: list[str] | None = None,
+    max_depth: int = MAX_CONFIG_SEARCH_DEPTH,
 ) -> Path | None:
     """Find config file by searching upwards from current directory.
 
@@ -134,9 +132,9 @@ comment_ss_styles = COMMENT_SERVER_STYLES
 
 
 def print_action(
-        action: Action,
-        filename: str | Path,
-        last: bool = False,
+    action: Action,
+    filename: str | Path,
+    last: bool = False,
 ) -> None:
     """Output information about the action taken by chopper."""
     choppa = click.style("CHOPPER:", fg="magenta", bold=True)
@@ -172,9 +170,11 @@ chopper_confs = [
     ".env.chopper",
     ".env",
 ]
+# Don't print config message if just showing version
+show_config_message = "--version" not in sys.argv and "-V" not in sys.argv
 if dot_env := find_file_upwards(Path.cwd(), chopper_confs):
     try:
-        if load_dotenv(dot_env):
+        if load_dotenv(dot_env) and show_config_message:
             print(f"Using environment vars from: {dot_env}")
     except Exception as e:
         show_warning(f"Failed to load config file {dot_env}: {e}")
@@ -224,8 +224,7 @@ class ChopperParser(HTMLParser):
         self.parsed_data: list[ParsedData] = []
         self.start: list[int] = [0, 0]
 
-    def handle_starttag(self, tag: str,
-                        attrs: list[tuple[str, str | None]]) -> None:
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag in self.tags:
             self.tree.append(tag)
             for attr in attrs:
@@ -249,8 +248,7 @@ class ChopperParser(HTMLParser):
                 self.parsed_data.append(
                     ParsedData(
                         path=self.path,
-                        file_type=Path(self.path).suffix[
-                            1:] if self.path else "",
+                        file_type=Path(self.path).suffix[1:] if self.path else "",
                         base_path="",
                         source_file="",
                         tag=tag,
@@ -267,12 +265,10 @@ class ChopperParser(HTMLParser):
 def find_chopper_files(source: Path) -> list[str]:
     """Find all the chopper files in the source directory."""
     if not source.exists():
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT),
-                                str(source))
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(source))
 
     if not source.is_dir():
-        raise NotADirectoryError(errno.ENOTDIR, os.strerror(errno.ENOTDIR),
-                                 str(source))
+        raise NotADirectoryError(errno.ENOTDIR, os.strerror(errno.ENOTDIR), str(source))
 
     chopper_files = []
 
@@ -294,7 +290,9 @@ def find_chopper_files(source: Path) -> list[str]:
 
 
 def update_chopper_section(
-        source_file: Path, block: ParsedData, new_content: str,
+    source_file: Path,
+    block: ParsedData,
+    new_content: str,
 ) -> bool:
     """Update specific section in chopper file using parser position data.
 
@@ -333,8 +331,7 @@ def update_chopper_section(
         if line.strip():  # Only indent non-empty lines
             new_content_lines.append(f"{indent}{line}\n")
         else:
-            new_content_lines.append(
-                "\n")  # Preserve empty lines without indentation
+            new_content_lines.append("\n")  # Preserve empty lines without indentation
 
     # Reconstruct file
     updated_lines = before_section + new_content_lines + after_section
@@ -344,11 +341,11 @@ def update_chopper_section(
 
 
 def chop(
-        source: str,
-        types: dict[str, str],
-        comments: CommentType,
-        warn: bool = False,
-        update: bool = False,
+    source: str,
+    types: dict[str, str],
+    comments: CommentType,
+    warn: bool = False,
+    update: bool = False,
 ) -> bool:
     """Chop up the source file into the blocks defined by the chopper tags."""
     print_action(Action.CHOP, source)
@@ -392,8 +389,7 @@ def chop(
             block.content = f"\n{comment_line}\n\n{block.content}"
 
         last = False if block_count != i else True
-        result, source_updated = write_chopped_block(block, log, warn, update,
-                                                     last)
+        result, source_updated = write_chopped_block(block, log, warn, update, last)
         if not result:
             success = False
 
@@ -405,8 +401,7 @@ def chop(
                     source_html = f.read()
             except UnicodeDecodeError:
                 show_error(
-                    Action.CHOP, source,
-                    "File is not a valid UTF-8 file after update."
+                    Action.CHOP, source, "File is not a valid UTF-8 file after update."
                 )
                 return False
 
@@ -425,7 +420,9 @@ def chop(
 
 
 def extract_block(
-        start: tuple[int, ...], end: tuple[int, int], source_html: list[Any],
+    start: tuple[int, ...],
+    end: tuple[int, int],
+    source_html: list[Any],
 ) -> str:
     """Extract the block of code from the source.
 
@@ -467,15 +464,14 @@ def ensure_parent_directory_exists(file_path: Path) -> bool:
             return True
         except (OSError, PermissionError) as e:
             show_error(
-                Action.DIR, str(file_path.parent),
-                f"Cannot create directory: {e}"
+                Action.DIR, str(file_path.parent), f"Cannot create directory: {e}"
             )
             return False
     return True
 
 
 def validate_and_resolve_output_path(
-        block: ParsedData,
+    block: ParsedData,
 ) -> tuple[bool, Path | None, str]:
     """Validate block has valid output path and resolve it.
 
@@ -497,7 +493,8 @@ def validate_and_resolve_output_path(
 
 
 def open_file_for_write(
-        partial_file: Path, warn: bool,
+    partial_file: Path,
+    warn: bool,
 ) -> tuple[TextIO | None, bool, str]:
     """Open file for writing, handling new vs existing files.
 
@@ -533,11 +530,11 @@ def open_file_for_write(
 
 
 def write_chopped_block(
-        block: ParsedData,
-        log: ChopperLog,
-        warn: bool = False,
-        update: bool = False,
-        last: bool = False,
+    block: ParsedData,
+    log: ChopperLog,
+    warn: bool = False,
+    update: bool = False,
+    last: bool = False,
 ) -> tuple[bool, bool]:
     """Create or update the file specified in the chopper:file attribute.
 
@@ -559,10 +556,8 @@ def write_chopped_block(
     # Validate and resolve output path
     is_valid, partial_file, error_msg = validate_and_resolve_output_path(block)
     if not is_valid:
-        show_error(Action.WRITE, block.source_file,
-                   f"Security violation: {error_msg}")
-        log.chopped.append(
-            Chopped(Action.MISSMATCH, Path(block.path), error_msg))
+        show_error(Action.WRITE, block.source_file, f"Security violation: {error_msg}")
+        log.chopped.append(Chopped(Action.MISSMATCH, Path(block.path), error_msg))
         return False, False
 
     assert partial_file is not None  # mypy hint: validated above
@@ -572,8 +567,7 @@ def write_chopped_block(
         return False, False
 
     # Open file for writing
-    file_handle, is_new_file, error_msg = open_file_for_write(partial_file,
-                                                              warn)
+    file_handle, is_new_file, error_msg = open_file_for_write(partial_file, warn)
 
     if error_msg == "DOES_NOT_EXIST":
         print_action(Action.DOES_NOT_EXIST, partial_file, last=last)
@@ -631,12 +625,12 @@ def prompt_for_update() -> str:
 
 
 def handle_file_difference(
-        block: ParsedData,
-        content: str,
-        current_contents: str,
-        partial: Path,
-        warn: bool,
-        update: bool,
+    block: ParsedData,
+    content: str,
+    current_contents: str,
+    partial: Path,
+    warn: bool,
+    update: bool,
 ) -> tuple[bool, bool, bool]:
     """Handle case where file contents differ from chopped content.
 
@@ -670,8 +664,7 @@ def handle_file_difference(
 
         if choice == "y":
             # Update the chopper file with destination content
-            if update_chopper_section(Path(block.source_file), block,
-                                      current_contents):
+            if update_chopper_section(Path(block.source_file), block, current_contents):
                 return False, True, True  # Don't write, success, source updated
             else:
                 return False, False, False  # Update failed
@@ -685,7 +678,11 @@ def handle_file_difference(
 
 
 def write_content_to_file(
-        f: TextIO, content: str, partial: Path, last: bool, is_new: bool,
+    f: TextIO,
+    content: str,
+    partial: Path,
+    last: bool,
+    is_new: bool,
 ) -> None:
     """Write content to file handle and print appropriate action.
 
@@ -706,14 +703,14 @@ def write_content_to_file(
 
 
 def write_to_file(
-        block: ParsedData,
-        content: str,
-        f: TextIO,
-        last: bool,
-        partial: Path,
-        warn: bool,
-        update: bool,
-        newfile: bool,
+    block: ParsedData,
+    content: str,
+    f: TextIO,
+    last: bool,
+    partial: Path,
+    warn: bool,
+    update: bool,
+    newfile: bool,
 ) -> tuple[bool, bool]:
     """Write the content to the file if it differs from the current contents.
 
@@ -744,8 +741,8 @@ def write_to_file(
 def remove_common_path(a: Path, b: Path, prefix: str = "") -> tuple[Path, Path]:
     """Remove the common path from the two paths."""
     common = Path(os.path.commonpath([str(a), str(b)]))
-    a_parts = a.parts[len(common.parts):]
-    b_parts = b.parts[len(common.parts):]
+    a_parts = a.parts[len(common.parts) :]
+    b_parts = b.parts[len(common.parts) :]
     a = Path(prefix, *a_parts)
     b = Path(prefix, *b_parts)
     return a, b
@@ -773,8 +770,7 @@ def show_diff(a: str, b: str, fname_a: str, fname_b: str) -> None:
         elif line.startswith("@@"):
             click.echo(
                 prefix
-                + click.style(line, fg="bright_white", bold=True,
-                              underline=True),
+                + click.style(line, fg="bright_white", bold=True, underline=True),
                 nl=False,
             )
         # diff

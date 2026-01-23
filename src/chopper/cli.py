@@ -126,6 +126,10 @@ class ChopEventHandler(FileSystemEventHandler):
     types: dict[str, str]
     comments: CommentType
     warn: bool
+    # Debounce tracking: maps file path to last processed timestamp
+    _last_processed: dict[str, float]
+    # Minimum seconds between processing the same file
+    DEBOUNCE_SECONDS: float = 1.0
 
     def __init__(
         self,
@@ -137,13 +141,21 @@ class ChopEventHandler(FileSystemEventHandler):
         self.types = types
         self.comments = comments
         self.warn = warn
+        self._last_processed = {}
 
     def on_any_event(self, event: FileSystemEvent) -> None:
         path = Path(str(event.src_path))
         is_chopper_file = path.is_file() and path.name.endswith(CHOPPER_NAME)
 
         if is_chopper_file and event.event_type == "modified":
-            self.chop_file(str(path))
+            # Debounce: skip if this file was processed recently
+            now = time.time()
+            path_str = str(path)
+            last_time = self._last_processed.get(path_str, 0)
+            if now - last_time < self.DEBOUNCE_SECONDS:
+                return
+            self._last_processed[path_str] = now
+            self.chop_file(path_str)
 
     def chop_file(self, path: str) -> bool:
         result = chop(path, self.types, self.comments, warn=self.warn)
