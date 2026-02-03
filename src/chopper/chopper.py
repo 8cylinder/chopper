@@ -224,6 +224,24 @@ class ChopperParser(HTMLParser):
         self.parsed_data: list[ParsedData] = []
         self.start: list[int] = [0, 0]
 
+    def _get_file_type(self, path: str) -> str:
+        """Determine file type from path, handling compound extensions.
+
+        Args:
+            path: File path to analyze
+
+        Returns:
+            File type string (e.g., 'js', 'css', 'antlers' for .antlers.html)
+        """
+        if not path:
+            return ""
+        p = Path(path)
+        # Check for compound extensions like .antlers.html
+        if p.name.endswith(".antlers.html"):
+            return "antlers"
+        # Default to standard suffix
+        return p.suffix[1:] if p.suffix else ""
+
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag in self.tags:
             self.tree.append(tag)
@@ -248,7 +266,7 @@ class ChopperParser(HTMLParser):
                 self.parsed_data.append(
                     ParsedData(
                         path=self.path,
-                        file_type=Path(self.path).suffix[1:] if self.path else "",
+                        file_type=self._get_file_type(self.path),
                         base_path="",
                         source_file="",
                         tag=tag,
