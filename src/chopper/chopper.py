@@ -307,6 +307,41 @@ def find_chopper_files(source: Path) -> list[str]:
     return chopper_files
 
 
+def strip_chopper_comment(content: str, source_file: str, dest_file: str) -> str:
+    """Remove the chopper-generated comment from file content.
+
+    When chopper writes files with comments enabled, it prepends a comment
+    like "/* source.chopper.html -> dest.css */". This function removes
+    that comment so it's not written back to the chopper file during update.
+
+    Args:
+        content: File content that may contain a chopper comment
+        source_file: Source chopper file path (used in comment)
+        dest_file: Destination file path (used in comment)
+
+    Returns:
+        Content with the chopper comment removed
+    """
+    # Build the comment pattern: \n{comment}\n\n at start of content
+    # The comment format is: {open}{source} -> {dest}{close}
+    # We need to check all possible comment styles
+    all_comment_styles = set(COMMENT_CLIENT_STYLES.values()) | set(
+        COMMENT_SERVER_STYLES.values()
+    )
+
+    for style in all_comment_styles:
+        if not style.open and not style.close:
+            continue  # Skip "none" style
+
+        comment_line = f"{style.open}{source_file} -> {dest_file}{style.close}"
+        comment_prefix = f"\n{comment_line}\n\n"
+
+        if content.startswith(comment_prefix):
+            return content[len(comment_prefix) :]
+
+    return content
+
+
 def update_chopper_section(
     source_file: Path,
     block: ParsedData,
@@ -322,6 +357,10 @@ def update_chopper_section(
     Returns:
         bool: True if update successful, False if error
     """
+    # Strip any chopper-generated comment from the content
+    dest_path = Path(block.base_path) / block.path
+    new_content = strip_chopper_comment(new_content, str(source_file), str(dest_path))
+
     original_content = source_file.read_text()
     lines = original_content.splitlines(keepends=True)
 

@@ -588,6 +588,234 @@ class TestCLIIntegration(TestReverseSyncFunctionality):
         )
 
 
+class TestCommentStrippingOnUpdate(TestReverseSyncFunctionality):
+    """Test that dynamically inserted comments are stripped during --update."""
+
+    def _get_chop_and_comment_type(self):
+        """Import chop and CommentType fresh to handle module reloads.
+
+        Other tests may reload the chopper module, which creates new enum
+        instances. We need to import fresh to get the current module's
+        versions.
+        """
+        from chopper.chopper import chop, CommentType
+
+        return chop, CommentType
+
+    def test_server_comments_stripped_on_update(self):
+        """Test that server-style comments are not written back to chopper file."""
+        chop, CommentType = self._get_chop_and_comment_type()
+        content = """<style chopper:file="test.css">
+.test {
+    color: blue;
+}
+</style>"""
+        chopper_file = self.create_test_chopper_file("test.chopper.html", content)
+
+        # Run chopper with server comments to generate files
+        types = self.get_types_dict()
+        chop(str(chopper_file), types, CommentType.SERVER, warn=False, update=False)
+
+        # Verify CSS file was created with comment
+        css_file = self.css_dir / "test.css"
+        assert css_file.exists(), "CSS file should be created"
+        css_content = css_file.read_text()
+        assert "/* " in css_content and " */" in css_content, (
+            "CSS should contain server-style comment"
+        )
+        assert "->" in css_content, "CSS should contain path arrow in comment"
+
+        # Modify the CSS file (keeping the comment as it would be in real usage)
+        modified_css = css_content.replace("color: blue", "color: red")
+        css_file.write_text(modified_css)
+
+        # Run with --update and accept
+        with patch("chopper.chopper.click.prompt", return_value="y"):
+            chop(str(chopper_file), types, CommentType.SERVER, warn=True, update=True)
+
+        # Verify chopper file was updated WITHOUT the comment
+        updated_content = chopper_file.read_text()
+        assert "color: red" in updated_content, "Content should be updated"
+        assert "/* " not in updated_content, (
+            "Server comment should NOT be in chopper file"
+        )
+        assert "->" not in updated_content, (
+            "Path arrow from comment should NOT be in chopper file"
+        )
+
+    def test_client_comments_stripped_on_update(self):
+        """Test that client-style comments are not written back to chopper file."""
+        chop, CommentType = self._get_chop_and_comment_type()
+        content = """<style chopper:file="test.css">
+.test {
+    color: green;
+}
+</style>"""
+        chopper_file = self.create_test_chopper_file("test.chopper.html", content)
+
+        # Run chopper with client comments to generate files
+        types = self.get_types_dict()
+        chop(str(chopper_file), types, CommentType.CLIENT, warn=False, update=False)
+
+        # Verify CSS file was created with comment
+        css_file = self.css_dir / "test.css"
+        css_content = css_file.read_text()
+        assert "/* " in css_content, "CSS should contain client-style comment"
+
+        # Modify the CSS file (keeping the comment)
+        modified_css = css_content.replace("color: green", "color: yellow")
+        css_file.write_text(modified_css)
+
+        # Run with --update and accept
+        with patch("chopper.chopper.click.prompt", return_value="y"):
+            chop(str(chopper_file), types, CommentType.CLIENT, warn=True, update=True)
+
+        # Verify chopper file was updated WITHOUT the comment
+        updated_content = chopper_file.read_text()
+        assert "color: yellow" in updated_content, "Content should be updated"
+        assert "->" not in updated_content, (
+            "Path arrow from comment should NOT be in chopper file"
+        )
+
+    def test_js_comments_stripped_on_update(self):
+        """Test that JS single-line comments are stripped on update."""
+        chop, CommentType = self._get_chop_and_comment_type()
+        content = """<script chopper:file="test.js">
+console.log("hello");
+</script>"""
+        chopper_file = self.create_test_chopper_file("test.chopper.html", content)
+
+        # Run chopper with server comments
+        types = self.get_types_dict()
+        chop(str(chopper_file), types, CommentType.SERVER, warn=False, update=False)
+
+        # Verify JS file was created with comment
+        js_file = self.js_dir / "test.js"
+        js_content = js_file.read_text()
+        assert "// " in js_content, "JS should contain single-line comment"
+        assert "->" in js_content, "JS should contain path arrow in comment"
+
+        # Modify the JS file (keeping the comment)
+        modified_js = js_content.replace('console.log("hello")', 'console.log("world")')
+        js_file.write_text(modified_js)
+
+        # Run with --update and accept
+        with patch("chopper.chopper.click.prompt", return_value="y"):
+            chop(str(chopper_file), types, CommentType.SERVER, warn=True, update=True)
+
+        # Verify chopper file was updated WITHOUT the comment
+        updated_content = chopper_file.read_text()
+        assert 'console.log("world")' in updated_content, "Content should be updated"
+        assert "// " not in updated_content, "JS comment should NOT be in chopper file"
+        assert "->" not in updated_content, (
+            "Path arrow from comment should NOT be in chopper file"
+        )
+
+    def test_html_comments_stripped_on_update(self):
+        """Test that HTML comments are stripped on update."""
+        chop, CommentType = self._get_chop_and_comment_type()
+        content = """<chop chopper:file="test.html">
+<div>Hello</div>
+</chop>"""
+        chopper_file = self.create_test_chopper_file("test.chopper.html", content)
+
+        # Run chopper with client comments (HTML uses <!-- --> for client)
+        types = self.get_types_dict()
+        chop(str(chopper_file), types, CommentType.CLIENT, warn=False, update=False)
+
+        # Verify HTML file was created with comment
+        html_file = self.html_dir / "test.html"
+        html_content = html_file.read_text()
+        assert "<!--" in html_content and "-->" in html_content, (
+            "HTML should contain HTML comment"
+        )
+
+        # Modify the HTML file (keeping the comment)
+        modified_html = html_content.replace("<div>Hello</div>", "<div>Goodbye</div>")
+        html_file.write_text(modified_html)
+
+        # Run with --update and accept
+        with patch("chopper.chopper.click.prompt", return_value="y"):
+            chop(str(chopper_file), types, CommentType.CLIENT, warn=True, update=True)
+
+        # Verify chopper file was updated WITHOUT the comment
+        updated_content = chopper_file.read_text()
+        assert "<div>Goodbye</div>" in updated_content, "Content should be updated"
+        assert "<!--" not in updated_content, (
+            "HTML comment should NOT be in chopper file"
+        )
+        assert "->" not in updated_content, (
+            "Path arrow from comment should NOT be in chopper file"
+        )
+
+    def test_twig_comments_stripped_on_update(self):
+        """Test that Twig server comments are stripped on update."""
+        chop, CommentType = self._get_chop_and_comment_type()
+        content = """<chop chopper:file="test.twig">
+<div>{{ variable }}</div>
+</chop>"""
+        chopper_file = self.create_test_chopper_file("test.chopper.html", content)
+
+        # Run chopper with server comments (Twig uses {# #} for server)
+        types = self.get_types_dict()
+        chop(str(chopper_file), types, CommentType.SERVER, warn=False, update=False)
+
+        # Verify Twig file was created with comment
+        twig_file = self.html_dir / "test.twig"
+        twig_content = twig_file.read_text()
+        assert "{#" in twig_content and "#}" in twig_content, (
+            "Twig should contain Twig comment"
+        )
+
+        # Modify the Twig file (keeping the comment)
+        modified_twig = twig_content.replace("{{ variable }}", "{{ other_var }}")
+        twig_file.write_text(modified_twig)
+
+        # Run with --update and accept
+        with patch("chopper.chopper.click.prompt", return_value="y"):
+            chop(str(chopper_file), types, CommentType.SERVER, warn=True, update=True)
+
+        # Verify chopper file was updated WITHOUT the comment
+        updated_content = chopper_file.read_text()
+        assert "{{ other_var }}" in updated_content, "Content should be updated"
+        assert "{#" not in updated_content, "Twig comment should NOT be in chopper file"
+        assert "->" not in updated_content, (
+            "Path arrow from comment should NOT be in chopper file"
+        )
+
+    def test_no_comment_mode_unchanged(self):
+        """Test that update works correctly when comments are disabled."""
+        chop, CommentType = self._get_chop_and_comment_type()
+        content = """<style chopper:file="test.css">
+.test {
+    color: blue;
+}
+</style>"""
+        chopper_file = self.create_test_chopper_file("test.chopper.html", content)
+
+        # Run chopper with no comments
+        types = self.get_types_dict()
+        chop(str(chopper_file), types, CommentType.NONE, warn=False, update=False)
+
+        # Verify CSS file was created without comment
+        css_file = self.css_dir / "test.css"
+        css_content = css_file.read_text()
+        assert "->" not in css_content, "CSS should NOT contain path comment"
+
+        # Modify the CSS file
+        modified_css = css_content.replace("color: blue", "color: purple")
+        css_file.write_text(modified_css)
+
+        # Run with --update and accept
+        with patch("chopper.chopper.click.prompt", return_value="y"):
+            chop(str(chopper_file), types, CommentType.NONE, warn=True, update=True)
+
+        # Verify chopper file was updated correctly
+        updated_content = chopper_file.read_text()
+        assert "color: purple" in updated_content, "Content should be updated"
+        assert "->" not in updated_content, "No comment artifacts"
+
+
 if __name__ == "__main__":
     # Allow running tests directly
     pytest.main([__file__])
