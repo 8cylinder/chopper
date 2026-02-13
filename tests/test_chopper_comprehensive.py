@@ -1207,8 +1207,12 @@ console.log("server test");
         # HTML template files should use server-side comment syntax
         html_file = self.html_dir / "server.twig"
         html_content = html_file.read_text()
-        assert "<div>Server HTML</div>" in html_content, "Should contain actual HTML content"
-        assert "{# " in html_content, "Twig files should use {# #} comments for server mode"
+        assert "<div>Server HTML</div>" in html_content, (
+            "Should contain actual HTML content"
+        )
+        assert "{# " in html_content, (
+            "Twig files should use {# #} comments for server mode"
+        )
         assert str(chopper_file) in html_content, "Comment should include source path"
 
     def test_no_comments(self):

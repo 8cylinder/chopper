@@ -142,9 +142,9 @@ class TestMultipleSectionUpdate:
         updated_content = chopper_file.read_text()
 
         # Verify all three sections still exist with correct tags
-        assert "<style chopper:file=\"test.css\">" in updated_content
+        assert '<style chopper:file="test.css">' in updated_content
         assert "</style>" in updated_content
-        assert "<script chopper:file=\"test.js\">" in updated_content
+        assert '<script chopper:file="test.js">' in updated_content
         assert "</script>" in updated_content
         assert '<chop chopper:file="test.html">' in updated_content
         assert "</chop>" in updated_content
@@ -196,9 +196,7 @@ class TestMultipleSectionUpdate:
         html_file = self.views_dir / "test.html"
 
         # Add many lines to CSS (this will shift line numbers significantly)
-        css_additions = "\n".join(
-            [f"  /* Line {i} */" for i in range(1, 21)]
-        )
+        css_additions = "\n".join([f"  /* Line {i} */" for i in range(1, 21)])
         css_file.write_text(css_file.read_text() + "\n" + css_additions)
 
         # Add many lines to JS (this will further shift line numbers)
@@ -230,9 +228,9 @@ class TestMultipleSectionUpdate:
         updated_lines = updated_content.splitlines()
 
         # The file should be significantly longer (about 50 lines added)
-        assert (
-            len(updated_lines) > original_length + 40
-        ), "File should have grown significantly"
+        assert len(updated_lines) > original_length + 40, (
+            "File should have grown significantly"
+        )
 
         # Verify all sections are still present and valid
         # CSS section should contain all 20 comment lines
@@ -263,9 +261,7 @@ class TestMultipleSectionUpdate:
             else:
                 html_section_found = False
                 break
-        assert (
-            html_section_found
-        ), "HTML section should contain all added paragraphs"
+        assert html_section_found, "HTML section should contain all added paragraphs"
 
         # Most importantly: verify no content from one section leaked into another
         lines = updated_content.splitlines()
@@ -295,17 +291,11 @@ class TestMultipleSectionUpdate:
 
             # Verify content is in the right section
             if "/* Line" in line:
-                assert (
-                    in_style
-                ), "CSS comment should only appear in style section"
+                assert in_style, "CSS comment should only appear in style section"
             if "// Line" in line:
-                assert (
-                    in_script
-                ), "JS comment should only appear in script section"
+                assert in_script, "JS comment should only appear in script section"
             if "<p>Paragraph" in line:
-                assert (
-                    in_chop
-                ), "HTML paragraph should only appear in chop section"
+                assert in_chop, "HTML paragraph should only appear in chop section"
 
     def test_update_with_empty_sections(self):
         """Test that updating works even when some sections are empty."""
@@ -355,9 +345,9 @@ class TestMultipleSectionUpdate:
         updated_content = chopper_file.read_text()
 
         # Verify all tags are still present
-        assert "<style chopper:file=\"empty.css\">" in updated_content
+        assert '<style chopper:file="empty.css">' in updated_content
         assert "</style>" in updated_content
-        assert "<script chopper:file=\"empty.js\">" in updated_content
+        assert '<script chopper:file="empty.js">' in updated_content
         assert "</script>" in updated_content
         assert '<chop chopper:file="empty.html">' in updated_content
         assert "</chop>" in updated_content

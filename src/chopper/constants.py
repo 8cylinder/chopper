@@ -42,6 +42,7 @@ COMMENT_CLIENT_STYLES = {
     "jsx": Comment("// ", ""),
     "css": Comment("/* ", " */"),
     "scss": Comment("/* ", " */"),
+    "json": Comment("", ""),
     "none": Comment("", ""),
 }
 
@@ -57,6 +58,7 @@ COMMENT_SERVER_STYLES = {
     "jsx": Comment("// ", ""),
     "css": Comment("/* ", " */"),
     "scss": Comment("/* ", " */"),
+    "json": Comment("", ""),
     "none": Comment("", ""),
 }
 
