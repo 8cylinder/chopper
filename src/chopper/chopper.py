@@ -405,7 +405,14 @@ def chop(
     update: bool = False,
 ) -> bool:
     """Chop up the source file into the blocks defined by the chopper tags."""
-    print_action(Action.CHOP, source)
+    # Convert source to relative path for display and comments
+    source_path = Path(source)
+    try:
+        source_relative = str(source_path.relative_to(Path.cwd()))
+    except ValueError:
+        # If source is not relative to cwd, use the original path
+        source_relative = source
+    print_action(Action.CHOP, source_relative)
     log = ChopperLog(Path(source))
     try:
         with open(source, "r") as f:
@@ -440,9 +447,12 @@ def chop(
                 comment_style = comment_ss_styles[block.file_type]
 
             dest = Path(block.base_path) / block.path
-            comment_line = (
-                f"{comment_style.open}{source} -> {dest}{comment_style.close}"
-            )
+            # Convert dest to relative path for comments
+            try:
+                dest_relative = dest.relative_to(Path.cwd())
+            except ValueError:
+                dest_relative = dest
+            comment_line = f"{comment_style.open}{source_relative} -> {dest_relative}{comment_style.close}"
             block.content = f"\n{comment_line}\n\n{block.content}"
 
         last = False if block_count != i else True

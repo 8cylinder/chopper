@@ -2059,6 +2059,299 @@ class TestMalformedHTMLHandling(TestChopperBase):
         assert success
 
 
+class TestCommentRelativePaths(TestChopperBase):
+    """Test that comments use relative paths, not absolute paths.
+
+    This addresses the bug where comments used absolute paths when files
+    were modified during watch mode, but relative paths on initial run.
+    """
+
+    def test_comments_use_relative_path_with_absolute_source(self):
+        """Test that comments contain relative paths even when absolute paths
+        are used.
+
+        When watchdog detects file changes, it passes absolute paths to chop().
+        The comment should still contain relative paths for both source and
+        destination.
+        """
+        # Import locally to handle module reload by other tests
+        from chopper.chopper import chop, CommentType
+
+        content = """<style chopper:file="test.css">
+.test { color: blue; }
+</style>"""
+
+        chopper_file = self.create_chopper_file("test.chopper.html", content)
+
+        # Get absolute path (simulating what watchdog does)
+        absolute_path = str(chopper_file.resolve())
+
+        # Change to temp directory so relative path can be computed
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(self.temp_dir)
+
+            # Create types dict with relative paths (after chdir)
+            types = {
+                "style": "css",
+                "script": "js",
+                "chop": "views",
+            }
+
+            # Run with absolute path (simulating watch mode)
+            success = chop(
+                absolute_path,
+                types,
+                CommentType.CLIENT,
+                warn=False,
+                update=False,
+            )
+
+            assert success, "Chopping should succeed"
+
+            # Check that comment contains relative paths, not absolute
+            css_file = self.css_dir / "test.css"
+            css_content = css_file.read_text()
+
+            # Extract source and dest paths from the comment
+            # Format: /* source -> dest */
+            import re
+
+            match = re.search(r"/\* (.+?) -> (.+?) \*/", css_content)
+            assert match, f"Should have comment in expected format. Got: {css_content}"
+            source_in_comment = match.group(1)
+            dest_in_comment = match.group(2)
+
+            # Source path should be relative (not start with /)
+            assert not source_in_comment.startswith("/"), (
+                f"Source path in comment should be relative, not absolute. "
+                f"Got: {source_in_comment}"
+            )
+
+            # Dest path should be relative (not start with /)
+            assert not dest_in_comment.startswith("/"), (
+                f"Dest path in comment should be relative, not absolute. "
+                f"Got: {dest_in_comment}"
+            )
+
+            # Should contain the expected relative paths
+            assert "chopper/test.chopper.html" in source_in_comment, (
+                f"Source path should be 'chopper/test.chopper.html'. "
+                f"Got: {source_in_comment}"
+            )
+            assert "css/test.css" in dest_in_comment, (
+                f"Dest path should be 'css/test.css'. Got: {dest_in_comment}"
+            )
+
+        finally:
+            os.chdir(original_cwd)
+
+    def test_comments_use_relative_path_with_relative_source(self):
+        """Test that comments contain relative paths when source is relative.
+
+        This verifies normal operation (initial run) still works correctly.
+        """
+        # Import locally to handle module reload by other tests
+        from chopper.chopper import chop, CommentType
+
+        content = """<script chopper:file="test.js">
+console.log("hello");
+</script>"""
+
+        chopper_file = self.create_chopper_file("test.chopper.html", content)
+
+        # Change to temp directory
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(self.temp_dir)
+
+            # Create types dict with relative paths (after chdir)
+            types = {
+                "style": "css",
+                "script": "js",
+                "chop": "views",
+            }
+
+            # Use relative path
+            relative_path = "chopper/test.chopper.html"
+
+            success = chop(
+                relative_path,
+                types,
+                CommentType.CLIENT,
+                warn=False,
+                update=False,
+            )
+
+            assert success, "Chopping should succeed"
+
+            # Check that comment contains relative paths
+            js_file = self.js_dir / "test.js"
+            js_content = js_file.read_text()
+
+            # Extract source and dest paths from the comment
+            # Format: // source -> dest
+            import re
+
+            match = re.search(r"// (.+?) -> (.+)", js_content)
+            assert match, f"Should have comment in expected format. Got: {js_content}"
+            source_in_comment = match.group(1)
+            dest_in_comment = match.group(2).strip()
+
+            # Source path should be relative (not start with /)
+            assert not source_in_comment.startswith("/"), (
+                f"Source path in comment should be relative. Got: {source_in_comment}"
+            )
+
+            # Dest path should be relative (not start with /)
+            assert not dest_in_comment.startswith("/"), (
+                f"Dest path in comment should be relative. Got: {dest_in_comment}"
+            )
+
+            # Should contain the expected relative paths
+            assert source_in_comment == "chopper/test.chopper.html", (
+                f"Source path should be 'chopper/test.chopper.html'. "
+                f"Got: {source_in_comment}"
+            )
+            assert dest_in_comment == "js/test.js", (
+                f"Dest path should be 'js/test.js'. Got: {dest_in_comment}"
+            )
+
+        finally:
+            os.chdir(original_cwd)
+
+    def test_comments_relative_path_multiple_file_types(self):
+        """Test relative paths in comments for all file types."""
+        # Import locally to handle module reload by other tests
+        from chopper.chopper import chop, CommentType
+        import re
+
+        content = """<style chopper:file="styles/main.css">
+.main { color: red; }
+</style>
+
+<script chopper:file="scripts/app.js">
+function init() {}
+</script>
+
+<chop chopper:file="partials/header.twig">
+<header>Header</header>
+</chop>"""
+
+        chopper_file = self.create_chopper_file("multi.chopper.html", content)
+
+        # Create subdirectories for nested output paths
+        (self.css_dir / "styles").mkdir(exist_ok=True)
+        (self.js_dir / "scripts").mkdir(exist_ok=True)
+        (self.html_dir / "partials").mkdir(exist_ok=True)
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(self.temp_dir)
+
+            # Create types dict with relative paths (after chdir)
+            types = {
+                "style": "css",
+                "script": "js",
+                "chop": "views",
+            }
+
+            # Use absolute path to simulate watch mode
+            absolute_path = str(chopper_file.resolve())
+
+            success = chop(
+                absolute_path,
+                types,
+                CommentType.SERVER,
+                warn=False,
+                update=False,
+            )
+
+            assert success, "Chopping should succeed"
+
+            # Check CSS file - verify both source and dest are relative
+            css_file = self.css_dir / "styles" / "main.css"
+            css_content = css_file.read_text()
+            match = re.search(r"/\* (.+?) -> (.+?) \*/", css_content)
+            assert match, f"CSS should have comment. Got: {css_content}"
+            assert not match.group(1).startswith("/"), (
+                f"CSS source should be relative. Got: {match.group(1)}"
+            )
+            assert not match.group(2).startswith("/"), (
+                f"CSS dest should be relative. Got: {match.group(2)}"
+            )
+
+            # Check JS file
+            js_file = self.js_dir / "scripts" / "app.js"
+            js_content = js_file.read_text()
+            match = re.search(r"// (.+?) -> (.+)", js_content)
+            assert match, f"JS should have comment. Got: {js_content}"
+            assert not match.group(1).startswith("/"), (
+                f"JS source should be relative. Got: {match.group(1)}"
+            )
+            assert not match.group(2).strip().startswith("/"), (
+                f"JS dest should be relative. Got: {match.group(2)}"
+            )
+
+            # Check Twig file (server comments use {# #})
+            twig_file = self.html_dir / "partials" / "header.twig"
+            twig_content = twig_file.read_text()
+            match = re.search(r"\{# (.+?) -> (.+?) #\}", twig_content)
+            assert match, f"Twig should have comment. Got: {twig_content}"
+            assert not match.group(1).startswith("/"), (
+                f"Twig source should be relative. Got: {match.group(1)}"
+            )
+            assert not match.group(2).startswith("/"), (
+                f"Twig dest should be relative. Got: {match.group(2)}"
+            )
+
+        finally:
+            os.chdir(original_cwd)
+
+    def test_comments_path_outside_cwd_uses_original(self):
+        """Test that paths outside cwd fall back to original path.
+
+        If the source file cannot be made relative to cwd (e.g., on a
+        different drive or outside the directory tree), use the original
+        path.
+        """
+        # Import locally to handle module reload by other tests
+        from chopper.chopper import chop, CommentType
+
+        content = """<style chopper:file="test.css">
+.test { color: blue; }
+</style>"""
+
+        chopper_file = self.create_chopper_file("test.chopper.html", content)
+        types = self.get_types_dict()
+
+        # Don't change cwd - temp_dir is likely not relative to real cwd
+        # This tests the fallback behavior where paths cannot be made relative
+        success = chop(
+            str(chopper_file),
+            types,
+            CommentType.CLIENT,
+            warn=False,
+            update=False,
+        )
+
+        assert success, "Chopping should succeed"
+
+        # The comment will contain the path (either relative or absolute
+        # depending on whether temp_dir is under cwd)
+        css_file = self.css_dir / "test.css"
+        css_content = css_file.read_text()
+
+        # Should at least have the filename in the comment
+        assert "test.chopper.html" in css_content, (
+            f"Comment should contain filename. Got: {css_content}"
+        )
+        # And the destination filename
+        assert "test.css" in css_content, (
+            f"Comment should contain dest filename. Got: {css_content}"
+        )
+
+
 if __name__ == "__main__":
     # Allow running tests directly
     pytest.main([__file__, "-v"])
