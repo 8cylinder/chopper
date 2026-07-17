@@ -19,6 +19,7 @@ from .constants import (
     CONFIG_FILE_NAMES,
     COMMENT_CLIENT_STYLES,
     COMMENT_SERVER_STYLES,
+    Comment,
 )
 
 
@@ -307,7 +308,12 @@ def find_chopper_files(source: Path) -> list[str]:
     return chopper_files
 
 
-def strip_chopper_comment(content: str, source_file: str, dest_file: str) -> str:
+def strip_chopper_comment(
+    content: str,
+    source_file: str,
+    dest_file: str,
+    comment_overrides: dict[str, Comment] | None = None,
+) -> str:
     """Remove the chopper-generated comment from file content.
 
     When chopper writes files with comments enabled, it prepends a comment
@@ -318,6 +324,7 @@ def strip_chopper_comment(content: str, source_file: str, dest_file: str) -> str
         content: File content that may contain a chopper comment
         source_file: Source chopper file path (used in comment)
         dest_file: Destination file path (used in comment)
+        comment_overrides: Custom comment styles to also check
 
     Returns:
         Content with the chopper comment removed
@@ -328,6 +335,8 @@ def strip_chopper_comment(content: str, source_file: str, dest_file: str) -> str
     all_comment_styles = set(COMMENT_CLIENT_STYLES.values()) | set(
         COMMENT_SERVER_STYLES.values()
     )
+    if comment_overrides:
+        all_comment_styles |= set(comment_overrides.values())
 
     for style in all_comment_styles:
         if not style.open and not style.close:
@@ -346,6 +355,7 @@ def update_chopper_section(
     source_file: Path,
     block: ParsedData,
     new_content: str,
+    comment_overrides: dict[str, Comment] | None = None,
 ) -> bool:
     """Update specific section in chopper file using parser position data.
 
@@ -353,13 +363,19 @@ def update_chopper_section(
         source_file: Path to the .chopper.html file
         block: ParsedData object with position information
         new_content: New content to insert (from destination file)
+        comment_overrides: Custom comment styles per file type
 
     Returns:
         bool: True if update successful, False if error
     """
     # Strip any chopper-generated comment from the content
     dest_path = Path(block.base_path) / block.path
-    new_content = strip_chopper_comment(new_content, str(source_file), str(dest_path))
+    new_content = strip_chopper_comment(
+        new_content,
+        str(source_file),
+        str(dest_path),
+        comment_overrides=comment_overrides,
+    )
 
     original_content = source_file.read_text()
     lines = original_content.splitlines(keepends=True)
@@ -403,6 +419,7 @@ def chop(
     comments: CommentType,
     warn: bool = False,
     update: bool = False,
+    comment_overrides: dict[str, Comment] | None = None,
 ) -> bool:
     """Chop up the source file into the blocks defined by the chopper tags."""
     # Convert source to relative path for display and comments
@@ -441,7 +458,9 @@ def chop(
         block.source_file = source
 
         if comments in (CommentType.CLIENT, CommentType.SERVER) and block.path:
-            if comments == CommentType.CLIENT:
+            if comment_overrides and block.file_type in comment_overrides:
+                comment_style = comment_overrides[block.file_type]
+            elif comments == CommentType.CLIENT:
                 comment_style = comment_cs_styles[block.file_type]
             else:  # CommentType.SERVER
                 comment_style = comment_ss_styles[block.file_type]
@@ -456,7 +475,14 @@ def chop(
             block.content = f"\n{comment_line}\n\n{block.content}"
 
         last = False if block_count != i else True
-        result, source_updated = write_chopped_block(block, log, warn, update, last)
+        result, source_updated = write_chopped_block(
+            block,
+            log,
+            warn,
+            update,
+            last,
+            comment_overrides=comment_overrides,
+        )
         if not result:
             success = False
 
@@ -602,6 +628,7 @@ def write_chopped_block(
     warn: bool = False,
     update: bool = False,
     last: bool = False,
+    comment_overrides: dict[str, Comment] | None = None,
 ) -> tuple[bool, bool]:
     """Create or update the file specified in the chopper:file attribute.
 
@@ -656,6 +683,7 @@ def write_chopped_block(
                 warn,
                 update,
                 is_new_file,
+                comment_overrides=comment_overrides,
             )
     except Exception as e:
         show_error(Action.WRITE, block.source_file, f"Unexpected error: {e}")
@@ -698,6 +726,7 @@ def handle_file_difference(
     partial: Path,
     warn: bool,
     update: bool,
+    comment_overrides: dict[str, Comment] | None = None,
 ) -> tuple[bool, bool, bool]:
     """Handle case where file contents differ from chopped content.
 
@@ -731,7 +760,12 @@ def handle_file_difference(
 
         if choice == "y":
             # Update the chopper file with destination content
-            if update_chopper_section(Path(block.source_file), block, current_contents):
+            if update_chopper_section(
+                Path(block.source_file),
+                block,
+                current_contents,
+                comment_overrides=comment_overrides,
+            ):
                 return False, True, True  # Don't write, success, source updated
             else:
                 return False, False, False  # Update failed
@@ -778,6 +812,7 @@ def write_to_file(
     warn: bool,
     update: bool,
     newfile: bool,
+    comment_overrides: dict[str, Comment] | None = None,
 ) -> tuple[bool, bool]:
     """Write the content to the file if it differs from the current contents.
 
@@ -795,7 +830,13 @@ def write_to_file(
     # Check if content differs
     if current_contents != content:
         should_write, success, source_updated = handle_file_difference(
-            block, content, current_contents, partial, warn, update
+            block,
+            content,
+            current_contents,
+            partial,
+            warn,
+            update,
+            comment_overrides=comment_overrides,
         )
         if should_write:
             write_content_to_file(f, content, partial, last, newfile)

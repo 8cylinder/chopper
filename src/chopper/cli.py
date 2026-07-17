@@ -12,6 +12,7 @@ from .chopper import (
     Action,
     CHOPPER_NAME,
 )
+from .constants import Comment, parse_comment_overrides
 import time  # noqa
 from watchdog.observers import Observer
 
@@ -75,6 +76,7 @@ def process_files(
     comments: CommentType,
     warn: bool,
     update: bool,
+    comment_overrides: dict[str, Comment] | None = None,
 ) -> bool:
     """Process all chopper files.
 
@@ -84,13 +86,21 @@ def process_files(
         comments: Comment style to use
         warn: Whether to warn instead of overwrite
         update: Whether to enable interactive update mode
+        comment_overrides: Custom comment styles per file type
 
     Returns:
         True if all files processed successfully, False otherwise
     """
     success = True
     for source_file in chopper_files:
-        if not chop(source_file, types, comments, warn=warn, update=update):
+        if not chop(
+            source_file,
+            types,
+            comments,
+            warn=warn,
+            update=update,
+            comment_overrides=comment_overrides,
+        ):
             success = False
     return success
 
@@ -99,6 +109,7 @@ def start_watch_mode(
     source: str,
     types: dict[str, str],
     comments: CommentType,
+    comment_overrides: dict[str, Comment] | None = None,
 ) -> None:
     """Start watch mode to monitor directory for changes.
 
@@ -106,8 +117,14 @@ def start_watch_mode(
         source: Source directory to watch
         types: Dictionary mapping type names to output directories
         comments: Comment style to use
+        comment_overrides: Custom comment styles per file type
     """
-    event_handler = ChopEventHandler(types, comments, warn=False)
+    event_handler = ChopEventHandler(
+        types,
+        comments,
+        warn=False,
+        comment_overrides=comment_overrides,
+    )
     observer = Observer()
     observer.schedule(event_handler, path=source, recursive=True)
     observer.start()
@@ -126,6 +143,7 @@ class ChopEventHandler(FileSystemEventHandler):
     types: dict[str, str]
     comments: CommentType
     warn: bool
+    comment_overrides: dict[str, Comment] | None
     # Debounce tracking: maps file path to last processed timestamp
     _last_processed: dict[str, float]
     # Minimum seconds between processing the same file
@@ -136,11 +154,13 @@ class ChopEventHandler(FileSystemEventHandler):
         types: dict[str, str],
         comments: CommentType,
         warn: bool,
+        comment_overrides: dict[str, Comment] | None = None,
     ) -> None:
         super().__init__()
         self.types = types
         self.comments = comments
         self.warn = warn
+        self.comment_overrides = comment_overrides
         self._last_processed = {}
 
     def on_any_event(self, event: FileSystemEvent) -> None:
@@ -158,7 +178,13 @@ class ChopEventHandler(FileSystemEventHandler):
             self.chop_file(path_str)
 
     def chop_file(self, path: str) -> bool:
-        result = chop(path, self.types, self.comments, warn=self.warn)
+        result = chop(
+            path,
+            self.types,
+            self.comments,
+            warn=self.warn,
+            comment_overrides=self.comment_overrides,
+        )
         return result
 
 
@@ -218,15 +244,29 @@ def main(
     CHOPPER_STYLE_DIR
     CHOPPER_HTML_DIR
     CHOPPER_COMMENTS
+    CHOPPER_COMMENT_STYLE_OVERRIDE
     CHOPPER_FILE_PATTERN
     CHOPPER_WARN
     CHOPPER_WATCH
     CHOPPER_INDENT
+
+    \b
+    CHOPPER_COMMENT_STYLE_OVERRIDE overrides comment styles per
+    file type when CHOPPER_COMMENTS is set to server or client.
+    Format: "type:open,close;type:open,close;"
+    Example: CHOPPER_COMMENT_STYLE_OVERRIDE="php:{{# , #}};"
+    Note: values containing # must be quoted in .env files
+    since space+# is treated as an inline comment.
     """
     if debug:
         print_debug_info(locals())
 
     validate_command_flags(update, warn, watch)
+
+    override_raw = os.environ.get("CHOPPER_COMMENT_STYLE_OVERRIDE", "")
+    comment_overrides: dict[str, Comment] | None = (
+        parse_comment_overrides(override_raw) if override_raw else None
+    )
 
     source_path = Path(source)
     chopper_files = get_chopper_files(source_path)
@@ -237,11 +277,17 @@ def main(
         "chop": html_dir or "",
     }
 
-    success = process_files(chopper_files, types, comments, warn, update)
+    success = process_files(
+        chopper_files, types, comments, warn, update,
+        comment_overrides=comment_overrides,
+    )
 
     if not success:
         click.secho("Some files are different", fg="red")
         sys.exit(1)
 
     if watch:
-        start_watch_mode(source, types, comments)
+        start_watch_mode(
+            source, types, comments,
+            comment_overrides=comment_overrides,
+        )

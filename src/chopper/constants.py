@@ -62,6 +62,24 @@ COMMENT_SERVER_STYLES = {
     "none": Comment("", ""),
 }
 
+
+def parse_comment_overrides(value: str) -> dict[str, "Comment"]:
+    """Parse a CHOPPER_COMMENT_STYLE_OVERRIDE string.
+
+    Format: "type:open,close;type:open,close;"
+    Example: "php:{{#,#}};css://,;"
+    """
+    overrides: dict[str, Comment] = {}
+    for entry in value.split(";"):
+        entry = entry.strip()
+        if not entry:
+            continue
+        type_part, _, style_spec = entry.partition(":")
+        open_marker, _, close_marker = style_spec.partition(",")
+        overrides[type_part.strip()] = Comment(open_marker, close_marker)
+    return overrides
+
+
 # Tree output symbols
 TREE_BRANCH = "├─ "
 TREE_LAST = "└─ "
