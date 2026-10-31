@@ -7,12 +7,18 @@ from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from .chopper import (
     chop,
     find_chopper_files,
+    find_file_upwards,
     show_error,
     CommentType,
     Action,
     CHOPPER_NAME,
 )
-from .constants import Comment, parse_comment_overrides
+from .completions import (
+    bash_version_warning,
+    install_bash_completion,
+    print_install_message,
+)
+from .constants import CONFIG_FILE_NAMES, Comment, parse_comment_overrides
 import time  # noqa
 from watchdog.observers import Observer
 
@@ -46,6 +52,44 @@ def validate_command_flags(update: bool, warn: bool, watch: bool) -> None:
     if update and watch:
         click.echo("Error: --update cannot be used with --watch", err=True)
         sys.exit(1)
+
+
+def print_config_path(ctx: click.Context, param: click.Parameter, value: bool) -> None:
+    """Print the discovered configuration file path and exit."""
+    if not value or ctx.resilient_parsing:
+        return
+
+    config = find_file_upwards(Path.cwd(), CONFIG_FILE_NAMES)
+    if config is None:
+        searched = ", ".join(CONFIG_FILE_NAMES)
+        raise click.ClickException(
+            "No configuration file found "
+            f"(searched upward from {Path.cwd()} for: {searched})"
+        )
+
+    click.echo(str(config))
+    ctx.exit()
+
+
+def install_completions(
+    ctx: click.Context, param: click.Parameter, value: bool
+) -> None:
+    """Write the bash completion script and exit."""
+    if not value or ctx.resilient_parsing:
+        return
+
+    try:
+        path = install_bash_completion(ctx.command)
+    except OSError as exc:
+        raise click.ClickException(f"Could not write completion script: {exc}") from exc
+
+    print_install_message(path)
+
+    warning = bash_version_warning()
+    if warning:
+        click.echo(warning, err=True)
+
+    ctx.exit()
 
 
 def get_chopper_files(source_path: Path) -> list[str]:
@@ -218,6 +262,12 @@ CONTEXT_SETTINGS = {
 @click.option("--update", is_flag=True,
               help="Interactively update chopper files with destination changes. Requires --warn.")
 @click.option("--debug", is_flag=True, help="Print debug information.")
+@click.option("--config", is_flag=True, is_eager=True, expose_value=False,
+              callback=print_config_path,
+              help="Print the path to the configuration file and exit.")
+@click.option("--completions", is_flag=True, is_eager=True,
+              expose_value=False, callback=install_completions,
+              help="Write bash completions for chopper and exit.")
 @click.version_option(__version__)
 # fmt: on
 def main(
@@ -257,6 +307,10 @@ def main(
     Example: CHOPPER_COMMENT_STYLE_OVERRIDE="php:{{# , #}};"
     Note: values containing # must be quoted in .env files
     since space+# is treated as an inline comment.
+
+    \b
+    Use --config to print the configuration file path and exit.
+    Use --completions to install bash completions and exit.
     """
     if debug:
         print_debug_info(locals())

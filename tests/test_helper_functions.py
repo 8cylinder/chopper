@@ -10,7 +10,7 @@ import io
 import pytest
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch, MagicMock
 import sys
 
 # Add src to path so we can import chopper modules

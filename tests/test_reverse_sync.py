@@ -11,9 +11,8 @@ import tempfile
 import shutil
 import os
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-from typing import Dict, List
-import subprocess
+from unittest.mock import patch
+from typing import Dict
 import sys
 from click.testing import CliRunner
 
@@ -22,11 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from chopper.chopper import (
     chop,
-    ChopperParser,
-    ParsedData,
-    validate_output_path,
     CommentType,
-    Action,
 )
 from chopper.cli import main
 
@@ -285,7 +280,6 @@ class TestMultipleSections(TestReverseSyncFunctionality):
     def test_update_only_css_section(self):
         """Test that only CSS section is updated when only CSS file changes."""
         chopper_file = self.create_basic_chopper_file()
-        original_content = chopper_file.read_text()
 
         # Generate files
         self.run_chopper_command(chopper_file, warn=False, update=False)
@@ -485,7 +479,6 @@ class TestErrorHandling(TestReverseSyncFunctionality):
 
     def test_permission_errors(self):
         """Test handling file permission errors."""
-        import stat
 
         if hasattr(os, "getuid") and os.getuid() == 0:
             pytest.skip("Cannot test permission errors as root user")

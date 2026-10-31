@@ -66,8 +66,9 @@ This document outlines a systematic approach to address security vulnerabilities
 
 **Implementation**:
 ```python
-def find_file_upwards(start_dir: Path, target_files: list[str],
-                     max_depth: int = 5) -> Path | None:
+def find_file_upwards(
+    start_dir: Path, target_files: list[str], max_depth: int = 5
+) -> Path | None:
     """Find config file with bounded upward search."""
     current_dir = start_dir.resolve()
     depth = 0
@@ -276,7 +277,7 @@ def validate_chopper_file(file_path: Path) -> tuple[bool, str]:
         return False, f"File too large: {file_path}"
 
     try:
-        content = file_path.read_text(encoding='utf-8')
+        content = file_path.read_text(encoding="utf-8")
         # Add HTML validation logic
         return True, ""
     except UnicodeDecodeError:

@@ -14,9 +14,8 @@ import pytest
 import tempfile
 import shutil
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-from typing import Dict, List
-import subprocess
+from unittest.mock import patch
+from typing import Dict
 import sys
 import os
 
@@ -26,10 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from chopper.chopper import (
     chop,
     ChopperParser,
-    ParsedData,
-    validate_output_path,
     CommentType,
-    Action,
 )
 
 
@@ -1935,7 +1931,6 @@ class TestConstantsModule(TestChopperBase):
             CHOPPER_FILE_EXTENSION,
             MAX_CONFIG_SEARCH_DEPTH,
             CONFIG_FILE_NAMES,
-            Comment,
             COMMENT_CLIENT_STYLES,
             COMMENT_SERVER_STYLES,
             TREE_BRANCH,
@@ -2010,7 +2005,7 @@ class TestMalformedHTMLHandling(TestChopperBase):
         chopper_file = self.create_chopper_file("unbalanced.chopper.html", content)
 
         # Should not crash with IndexError
-        success = self.run_chopper(chopper_file)
+        self.run_chopper(chopper_file)
 
         # Verify files were created
         assert (self.css_dir / "test.css").exists()
@@ -2032,7 +2027,7 @@ class TestMalformedHTMLHandling(TestChopperBase):
         )
 
         # Should handle gracefully
-        success = self.run_chopper(chopper_file)
+        self.run_chopper(chopper_file)
 
         # At least the valid sections should be processed
         assert (self.css_dir / "test1.css").exists()
@@ -2158,7 +2153,7 @@ class TestCommentRelativePaths(TestChopperBase):
 console.log("hello");
 </script>"""
 
-        chopper_file = self.create_chopper_file("test.chopper.html", content)
+        self.create_chopper_file("test.chopper.html", content)
 
         # Change to temp directory
         original_cwd = os.getcwd()

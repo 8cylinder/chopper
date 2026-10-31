@@ -19,8 +19,10 @@ then handled by whatever build tool you use, such as webpack.
 - **Security**: Path traversal protection and safe file operations
 - **Flexible configuration**: CLI arguments, environment variables, or
   `.env` files
+- **Bash completions**: Generate a static completion script with
+  `--completions`
 - **Type safe**: Full mypy --strict compliance
-- **Well tested**: 70 comprehensive tests covering all functionality
+- **Well tested**: Comprehensive pytest suite covering all functionality
 
 
 ## Installation
@@ -33,10 +35,14 @@ to build the package.
 To install it globally,
 
 ``` Bash
-git clone <this repo>
+git clone https://github.com/8cylinder/chopper.git
+cd chopper
 uv build
 uv tool install dist/chopper-X.X.X-py3-none-any.whl
 ```
+
+For an editable development install, run `make install` (or
+`uv tool install --editable --force .`).
 
 
 ## Usage
@@ -82,6 +88,31 @@ the script won't walk the filesystem looking for chopper files.
 ``` bash
 chopper --script=src/js --style=src/scss --html=private/templates src/chopper/headline.chopper.html
 ```
+
+### Command-line options
+
+``` text
+chopper [OPTIONS] SOURCE
+```
+
+`SOURCE` is a `.chopper.html` file or a directory that will be searched
+recursively.
+
+| Option | Environment variable | Description |
+| --- | --- | --- |
+| `-s`, `--script-dir DIR` | `CHOPPER_SCRIPT_DIR` | Destination for script files. |
+| `-c`, `--style-dir DIR` | `CHOPPER_STYLE_DIR` | Destination for style files. |
+| `-m`, `--html-dir DIR` | `CHOPPER_HTML_DIR` | Destination for HTML files. |
+| `--comments STYLE` | `CHOPPER_COMMENTS` | Comment style: `server`, `client`, or `none`. |
+| `-w`, `--warn` | `CHOPPER_WARN` | Warn instead of overwriting existing files. |
+| `-o`, `--overwrite` | `CHOPPER_WARN` | Overwrite differing files on the initial run. |
+| `--watch`, `--no-watch` | `CHOPPER_WATCH` | Re-chop files when they change. |
+| `--update` | | Interactively sync destination changes back to the source. Requires `--warn`. |
+| `--config` | | Print the discovered config file path and exit. |
+| `--completions` | | Write bash completions and exit. |
+| `--debug` | | Print debug information. |
+| `--version` | | Show the version and exit. |
+| `-h`, `--help` | | Show help and exit. |
 
 ### Reverse Sync (--update)
 
@@ -131,7 +162,7 @@ CHOPPER_SOURCE_DIR=src/chopper
 CHOPPER_SCRIPT_DIR=src/js
 CHOPPER_STYLE_DIR=src/css
 CHOPPER_HTML_DIR=src/views
-CHOPPER_COMMENTS=true
+CHOPPER_COMMENTS=server
 CHOPPER_WARN=true
 CHOPPER_WATCH=true
 CHOPPER_INDENT="  "
@@ -140,6 +171,36 @@ CHOPPER_INDENT="  "
 Chopper will automatically search upward from the current directory for
 configuration files in this order: `.chopper`, `chopper.conf`, `.env.chopper`,
 `.env`
+
+To print the path of the configuration file Chopper would use:
+
+``` bash
+chopper --config
+```
+
+If no configuration file is found, the command prints an error and exits
+with status 1.
+
+### Shell completions
+
+Chopper can install a static bash completion script:
+
+``` bash
+chopper --completions
+```
+
+The script is written to
+`$XDG_DATA_HOME/bash-completion/completions/chopper`, or
+`~/.local/share/bash-completion/completions/chopper` when
+`XDG_DATA_HOME` is not set.  The command prints the path and the
+`source` command needed to enable completions in the current terminal.
+
+Completions require bash 4.4 or newer and bash-completion 2.x.  Chopper
+warns when the `bash` on `PATH` is older than 4.4.  On macOS,
+`/bin/bash` is version 3.2 and the default shell is zsh, so install a
+newer bash (for example with Homebrew) and note that zsh is not
+supported.  The unsuffixed `chopper` filename works with
+bash-completion, though versions 2.18 and newer prefer `chopper.bash`.
 
 ### Dev integration
 
@@ -183,8 +244,20 @@ uv run chopper public/chopper/ -s public/js/ -c public/css/ -m public/views/ --w
 export PYTHONBREAKPOINT="pudb.set_trace"
 uv run chopper public/chopper/ -s public/js/ -c public/css/ -m public/views/
 
+# Install dependencies
+make sync
+
+# Format, lint, type check, and test
+make fmt
+make lint
+make type
+make test
+
+# Run every check without changing files
+make check
+
 # Type checking
-uv run mypy src/ --strict
+uv run mypy --strict src/
 
 # Code formatting
 uv run ruff format
@@ -219,8 +292,8 @@ The test suite includes tests for:
 - **Security**: Path traversal protection, malicious input handling
 - **Error handling**: Permissions, missing files, malformed HTML
 - **CLI validation**: Flag combinations, argument validation
+- **Base CLI options**: Help, config discovery, and bash completion generation
 - **Edge cases**: Empty files, special characters, large files, unbalanced tags
-- **Type safety**: Full mypy --strict compliance
 
 ### Build
 
@@ -228,9 +301,9 @@ To make available globally, install the package using `uv tool`.
 
 ``` bash
 # install editable
-uv tool install --editable .
+make install
 
 # install standalone
 uv build
 uv tool install dist/chopper-X.X.X-py3-none-any.whl
-    ```
+```

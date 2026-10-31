@@ -171,8 +171,16 @@ chopper_confs = [
     ".env.chopper",
     ".env",
 ]
-# Don't print config message if just showing version
-show_config_message = "--version" not in sys.argv and "-V" not in sys.argv
+# Don't print the config message for informational commands.
+QUIET_ARGS = {
+    "--version",
+    "-V",
+    "--config",
+    "--completions",
+    "--help",
+    "-h",
+}
+show_config_message = not any(arg in QUIET_ARGS for arg in sys.argv)
 if dot_env := find_file_upwards(Path.cwd(), chopper_confs):
     try:
         if load_dotenv(dot_env) and show_config_message:
@@ -700,7 +708,8 @@ def read_file_content(f: TextIO) -> tuple[str | None, str]:
         Tuple of (content, error_message)
     """
     try:
-        return f.read(), ""
+        contents: str = f.read()
+        return contents, ""
     except io.UnsupportedOperation:
         return "", ""
     except PermissionError as e:
@@ -713,10 +722,11 @@ def prompt_for_update() -> str:
     Returns:
         User choice: 'y', 'n', or 'c'
     """
-    return click.prompt(
+    choice: str = click.prompt(
         "Update chopper file?",
         type=click.Choice(["y", "n", "c"], case_sensitive=False),
     )
+    return choice
 
 
 def handle_file_difference(

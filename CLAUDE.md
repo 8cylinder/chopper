@@ -16,14 +16,18 @@ one file, then extract components for build tools like webpack.
 
 ```bash
 # Clone and build
-git clone <repo>
+git clone https://github.com/8cylinder/chopper.git
 uv build
 
 # Global installation
 pipx install dist/chopper-X.X.X-py3-none-any.whl
 
+# Install dependencies
+make sync
+
 # Development installation (editable)
-uv tool install --editable .
+make install
+# or: uv tool install --editable --force .
 ```
 
 ### Development Workflow
@@ -32,19 +36,22 @@ uv tool install --editable .
 # Run with help
 uv run chopper -h
 
-# Example development run with dry-run
-uv run chopper public/chopper/ -s public/js/ -c public/css/ -m public/views/ --dry-run
+# Example development run in warn mode
+uv run chopper public/chopper/ -s public/js/ -c public/css/ -m public/views/ --warn
 
 # Debug mode with pudb
 export PYTHONBREAKPOINT="pudb.set_trace"
 uv run chopper public/chopper/ -s public/js/ -c public/css/ -m public/views/
+
+# Run the full check suite
+make check
 ```
 
 ### Writing code
 
 - `pathlib.Path` is preferred over `os.path`.
-- lines should not exceed 80 characters for all files including markdown files.
-- When finishing a task, run `ruff format`.
+- lines should not exceed 88 characters for all files including markdown files.
+- When finishing a task, run `make fmt`.
 - Use type hinting for all code written.
 - Follow python best practices.
 - When making changes run the tests to ensure functioning code.
@@ -53,13 +60,16 @@ uv run chopper public/chopper/ -s public/js/ -c public/css/ -m public/views/
 
 ```bash
 # Type checking
-uv run mypy src/
+uv run mypy --strict src/
 
 # Linting
 uv run ruff check
 
 # Format code
 uv run ruff format
+
+# Everything above, plus tests
+make check
 ```
 
 ## Architecture
@@ -67,7 +77,9 @@ uv run ruff format
 ### Core Components
 
 - **`src/chopper/cli.py`**: CLI interface using Click framework with environment
-  variable support
+  variable support, `--config`, and `--completions`
+- **`src/chopper/completions.py`**: Generates and installs the static bash
+  completion script
 - **`src/chopper/chopper.py`**: Core parsing and file splitting logic
 - **`ChopperParser`** (in chopper.py): HTML parser that extracts `<script>`,
   `<style>`, and `<chopper>` tags with `chopper:file` attributes
@@ -99,7 +111,7 @@ CHOPPER_SOURCE_DIR=src/chopper
 CHOPPER_SCRIPT_DIR=src/js
 CHOPPER_STYLE_DIR=src/css
 CHOPPER_HTML_DIR=src/views
-CHOPPER_COMMENTS=true
+CHOPPER_COMMENTS=server
 CHOPPER_WARN=true
 CHOPPER_WATCH=true
 ```
@@ -110,6 +122,9 @@ The tool automatically searches upwards for configuration files in this order:
 2. `chopper.conf`
 3. `.env.chopper`
 4. `.env`
+
+Use `chopper --config` to print the path that would be used. It exits with
+status 1 when no configuration file is found.
 
 ### Comment Types
 
@@ -136,21 +151,27 @@ Supports various comment types for generated files:
 - `ipython>=8.30.0` - Enhanced REPL
 - `mypy>=1.13.0` - Static type checking
 - `pudb>=2024.1.3` - Visual debugger
+- `pytest>=7.0.0` - Test runner
 - `ruff>=0.9.4` - Fast Python linter/formatter
 
 ## Testing
 
-**Note**: This project currently has no formal testing framework set up. Testing
-is done manually using the sample files in the `public/` directory.
+Tests live in `tests/` and use pytest. Run the whole suite with `make test`
+or `uv run pytest`. The suite covers parsing, reverse sync, security checks,
+CLI validation, edge cases, and the base CLI options (`--config` and
+`--completions`).
 
 ## File Structure
 
 ```
 src/chopper/
-├── __init__.py           # Package initialization
+├── __init__.py          # Package initialization
 ├── cli.py               # Click-based CLI interface
+├── completions.py       # Bash completion generation
+├── constants.py         # Configuration constants and comment styles
 └── chopper.py           # Core file parsing and splitting logic
 
+tests/                    # pytest suite
 public/                   # Sample/test files
 ├── chopper/             # Source .chopper.html files
 ├── css/                 # CSS output examples
